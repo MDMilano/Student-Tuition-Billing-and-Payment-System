@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}Collect Payment - Student Tuition System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">Collect Payment</h1>
+        <p class="text-muted">Process student tuition payments</p>
+    </div>
+    <div class="btn-group" role="group">
+        <a href="{{ url_for('cashier.students') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>
+            Back to Students
+        </a>
+        <a href="{{ url_for('cashier.payment_history') }}" class="btn btn-outline-primary">
+            <i class="bi bi-clock-history me-2"></i>
+            Payment History
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Student Selection -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-check me-2"></i>
+                    Select Student
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="studentSelectionForm">
+                    <div class="mb-3">
+                        <label for="studentSearch" class="form-label">Search Student</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="studentSearch" 
+                                   placeholder="Enter student ID or name" 
+                                   value="{{ request.args.get('student_id', '') }}">
+                            <button class="btn btn-outline-secondary" type="button" onclick="searchStudent()">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">Enter student ID (e.g., STU-2024-001) or student name</div>
+                    </div>
+                </form>
+
+                <!-- Student Search Results -->
+                <div id="studentResults" class="mt-3">
+                    {% if selected_student %}
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Student selected: <strong>{{ selected_student.name }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Quick Select - Recent Students -->
+                <div class="mt-4">
+                    <h6 class="mb-3">Recent Students</h6>
+                    <div class="list-group">
+                        {% for student in recent_students or [
+                            {'id': 'STU-2024-003', 'name': 'Mike Johnson', 'balance': 28000.00},
+                            {'id': 'STU-2024-002', 'name': 'Jane Smith', 'balance': 15000.00},
+                            {'id': 'STU-2024-005', 'name': 'David Brown', 'balance': 15000.00}
+                        ] %}
+                        <button type="button" class="list-group-item list-group-item-action" 
+                                onclick="selectStudent('{{ student.id }}', '{{ student.name }}', {{ student.balance }})">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ student.name }}</h6>
+                                <small class="text-danger">₱{{ "{:,.2f}".format(student.balance) }}</small>
+                            </div>
+                            <p class="mb-1">{{ student.id }}</p>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Form -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-credit-card me-2"></i>
+                    Payment Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Student Information Panel -->
+                <div id="studentInfo" class="alert alert-info d-none">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Student Information</h6>
+                            <p class="mb-1"><strong>Name:</strong> <span id="studentName">-</span></p>
+                            <p class="mb-1"><strong>ID:</strong> <span id="studentId">-</span></p>
+                            <p class="mb-1"><strong>Course:</strong> <span id="studentCourse">-</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Payment Summary</h6>
+                            <p class="mb-1"><strong>Total Fee:</strong> ₱<span id="totalFee">0.00</span></p>
+                            <p class="mb-1"><strong>Paid Amount:</strong> ₱<span id="paidAmount">0.00</span></p>
+                            <p class="mb-1"><strong>Remaining Balance:</strong> <span class="text-danger fw-bold">₱<span id="remainingBalance">0.00</span></span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Form -->
+                <form id="paymentForm" action="{{ url_for('cashier.collect_payment') }}" method="POST">
+                    <input type="hidden" id="selectedStudentId" name="student_id" value="">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="paymentAmount" class="form-label">Payment Amount <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">₱</span>
+                                <input type="number" class="form-control" id="paymentAmount" name="amount" 
+                                       step="0.01" min="0" max="999999" required>
+                            </div>
+                            <div class="form-text">Enter the amount to be paid</div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="paymentMethod" class="form-label">Payment Method <span class="text-danger">*</span></label>
+                            <select class="form-select" id="paymentMethod" name="payment_method" required>
+                                <option value="">Select payment method</option>
+                                <option value="cash">Cash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="gcash">GCash</option>
+                                <option value="paymaya">PayMaya</option>
+                                <option value="credit_card">Credit Card</option>
+                                <option value="debit_card">Debit Card</option>
+                                <option value="check">Check</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Specific Fields -->
+                    <div id="additionalFields" class="mb-3 d-none">
+                        <!-- Bank Transfer Fields -->
+                        <div id="bankTransferFields" class="d-none">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="bankName" class="form-label">Bank Name</label>
+                                    <input type="text" class="form-control" id="bankName" name="bank_name" placeholder="e.g., BDO, BPI, Metrobank">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="referenceNumber" class="form-label">Reference Number</label>
+                                    <input type="text" class="form-control" id="referenceNumber" name="reference_number" placeholder="Transaction reference">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GCash/PayMaya Fields -->
+                        <div id="ewalletFields" class="d-none">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="phoneNumber" class="form-label">Phone Number</label>
+                                    <input type="tel" class="form-control" id="phoneNumber" name="phone_number" placeholder="09xxxxxxxxx">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="transactionId" class="form-label">Transaction ID</label>
+                                    <input type="text" class="form-control" id="transactionId" name="transaction_id" placeholder="Transaction ID">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Check Fields -->
+                        <div id="checkFields" class="d-none">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="checkNumber" class="form-label">Check Number</label>
+                                    <input type="text" class="form-control" id="checkNumber" name="check_number" placeholder="Check number">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="checkDate" class="form-label">Check Date</label>
+                                    <input type="date" class="form-control" id="checkDate" name="check_date">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="paymentNotes" class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" id="paymentNotes" name="notes" rows="3" 
+                                  placeholder="Additional notes about this payment"></textarea>
+                    </div>
+
+                    <!-- Quick Amount Buttons -->
+                    <div class="mb-3">
+                        <label class="form-label">Quick Amount Selection</label>
+                        <div class="btn-group d-block" role="group">
+                            <button type="button" class="btn btn-outline-secondary me-2 mb-2" onclick="setQuickAmount(5000)">₱5,000</button>
+                            <button type="button" class="btn btn-outline-secondary me-2 mb-2" onclick="setQuickAmount(10000)">₱10,000</button>
+                            <button type="button" class="btn btn-outline-secondary me-2 mb-2" onclick="setQuickAmount(15000)">₱15,000</button>
+                            <button type="button" class="btn btn-outline-secondary me-2 mb-2" onclick="setQuickAmount(25000)">₱25,000</button>
+                            <button type="button" class="btn btn-outline-primary mb-2" onclick="setFullAmount()">Full Amount</button>
+                        </div>
+                    </div>
+
+                    <!-- Payment Summary -->
+                    <div class="alert alert-light">
+                        <h6>Payment Summary</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1">Amount to Pay: <strong>₱<span id="summaryAmount">0.00</span></strong></p>
+                                <p class="mb-1">Payment Method: <strong><span id="summaryMethod">-</span></strong></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1">New Balance: <strong>₱<span id="newBalance">0.00</span></strong></p>
+                                <p class="mb-1">Status: <strong><span id="paymentStatus">Pending</span></strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                            <i class="bi bi-arrow-clockwise me-2"></i>
+                            Reset Form
+                        </button>
+                        <div>
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="previewPayment()">
+                                <i class="bi bi-eye me-2"></i>
+                                Preview
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="submitPayment" disabled>
+                                <i class="bi bi-check-circle me-2"></i>
+                                Process Payment
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Preview Modal -->
+<div class="modal fade" id="paymentPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-eye me-2"></i>
+                    Payment Preview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Student Details</h6>
+                        <p><strong>Name:</strong> <span id="previewStudentName">-</span></p>
+                        <p><strong>ID:</strong> <span id="previewStudentId">-</span></p>
+                        <p><strong>Course:</strong> <span id="previewStudentCourse">-</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Payment Details</h6>
+                        <p><strong>Amount:</strong> ₱<span id="previewAmount">0.00</span></p>
+                        <p><strong>Method:</strong> <span id="previewMethod">-</span></p>
+                        <p><strong>Date:</strong> <span id="previewDate">-</span></p>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Current Balance</h6>
+                        <p class="text-danger">₱<span id="previewCurrentBalance">0.00</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>New Balance</h6>
+                        <p class="text-success">₱<span id="previewNewBalance">0.00</span></p>
+                    </div>
+                </div>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Please verify all information before processing the payment.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="confirmPayment()">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Confirm & Process
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedStudentData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize payment method change handler
+    document.getElementById('paymentMethod').addEventListener('change', handlePaymentMethodChange);
+    
+    // Initialize amount input handler
+    document.getElementById('paymentAmount').addEventListener('input', updatePaymentSummary);
+    
+    // Auto-select student if provided in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('student_id');
+    if (studentId) {
+        document.getElementById('studentSearch').value = studentId;
+        searchStudent();
+    }
+});
+
+function searchStudent() {
+    const searchTerm = document.getElementById('studentSearch').value.trim();
+    if (!searchTerm) {
+        alert('Please enter a student ID or name to search.');
+        return;
+    }
+
+    // Simulate student search (replace with actual API call)
+    const mockStudents = [
+        {id: 'STU-2024-001', name: 'John Doe', course: 'Web Development', totalFee: 25000.00, paidAmount: 12500.00, balance: 12500.00},
+        {id: 'STU-2024-002', name: 'Jane Smith', course: 'Mobile Development', totalFee: 28000.00, paidAmount: 13000.00, balance: 15000.00},
+        {id: 'STU-2024-003', name: 'Mike Johnson', course: 'Data Science', totalFee: 30000.00, paidAmount: 2000.00, balance: 28000.00}
+    ];
+
+    const student = mockStudents.find(s => 
+        s.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (student) {
+        selectStudent(student.id, student.name, student.balance, student.course, student.totalFee, student.paidAmount);
+        document.getElementById('studentResults').innerHTML = `
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle me-2"></i>
+                Student found: <strong>${student.name}</strong>
+            </div>
+        `;
+    } else {
+        document.getElementById('studentResults').innerHTML = `
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                No student found with "${searchTerm}". Please check the ID or name.
+            </div>
+        `;
+    }
+}
+
+function selectStudent(id, name, balance, course = 'Web Development', totalFee = 25000.00, paidAmount = 0.00) {
+    selectedStudentData = {
+        id: id,
+        name: name,
+        course: course,
+        totalFee: totalFee,
+        paidAmount: paidAmount,
+        balance: balance
+    };
+
+    // Update hidden field
+    document.getElementById('selectedStudentId').value = id;
+
+    // Show student info
+    document.getElementById('studentInfo').classList.remove('d-none');
+    document.getElementById('studentName').textContent = name;
+    document.getElementById('studentId').textContent = id;
+    document.getElementById('studentCourse').textContent = course;
+    document.getElementById('totalFee').textContent = totalFee.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('paidAmount').textContent = paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('remainingBalance').textContent = balance.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+    // Enable form
+    document.getElementById('paymentAmount').disabled = false;
+    document.getElementById('paymentMethod').disabled = false;
+
+    // Update search field
+    document.getElementById('studentSearch').value = `${id} - ${name}`;
+}
+
+function handlePaymentMethodChange() {
+    const method = document.getElementById('paymentMethod').value;
+    const additionalFields = document.getElementById('additionalFields');
+    
+    // Hide all additional fields first
+    document.querySelectorAll('#additionalFields > div').forEach(div => div.classList.add('d-none'));
+    
+    if (method) {
+        additionalFields.classList.remove('d-none');
+        
+        switch(method) {
+            case 'bank_transfer':
+                document.getElementById('bankTransferFields').classList.remove('d-none');
+                break;
+            case 'gcash':
+            case 'paymaya':
+                document.getElementById('ewalletFields').classList.remove('d-none');
+                break;
+            case 'check':
+                document.getElementById('checkFields').classList.remove('d-none');
+                break;
+            default:
+                additionalFields.classList.add('d-none');
+        }
+    } else {
+        additionalFields.classList.add('d-none');
+    }
+    
+    updatePaymentSummary();
+}
+
+function setQuickAmount(amount) {
+    document.getElementById('paymentAmount').value = amount;
+    updatePaymentSummary();
+}
+
+function setFullAmount() {
+    if (selectedStudentData) {
+        document.getElementById('paymentAmount').value = selectedStudentData.balance;
+        updatePaymentSummary();
+    } else {
+        alert('Please select a student first.');
+    }
+}
+
+function updatePaymentSummary() {
+    const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+    const method = document.getElementById('paymentMethod').value;
+    
+    // Update summary fields
+    document.getElementById('summaryAmount').textContent = amount.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('summaryMethod').textContent = method ? method.replace('_', ' ').toUpperCase() : '-';
+    
+    if (selectedStudentData) {
+        const newBalance = Math.max(0, selectedStudentData.balance - amount);
+        document.getElementById('newBalance').textContent = newBalance.toLocaleString('en-US', {minimumFractionDigits: 2});
+        document.getElementById('paymentStatus').textContent = newBalance === 0 ? 'Fully Paid' : 'Partial Payment';
+    }
+    
+    // Enable/disable submit button
+    const submitBtn = document.getElementById('submitPayment');
+    submitBtn.disabled = !(selectedStudentData && amount > 0 && method);
+}
+
+function previewPayment() {
+    if (!selectedStudentData) {
+        alert('Please select a student first.');
+        return;
+    }
+    
+    const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+    const method = document.getElementById('paymentMethod').value;
+    
+    if (amount <= 0 || !method) {
+        alert('Please enter a valid amount and select a payment method.');
+        return;
+    }
+    
+    // Populate preview modal
+    document.getElementById('previewStudentName').textContent = selectedStudentData.name;
+    document.getElementById('previewStudentId').textContent = selectedStudentData.id;
+    document.getElementById('previewStudentCourse').textContent = selectedStudentData.course;
+    document.getElementById('previewAmount').textContent = amount.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('previewMethod').textContent = method.replace('_', ' ').toUpperCase();
+    document.getElementById('previewDate').textContent = new Date().toLocaleDateString();
+    document.getElementById('previewCurrentBalance').textContent = selectedStudentData.balance.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('previewNewBalance').textContent = Math.max(0, selectedStudentData.balance - amount).toLocaleString('en-US', {minimumFractionDigits: 2});
+    
+    // Show modal
+    new bootstrap.Modal(document.getElementById('paymentPreviewModal')).show();
+}
+
+function confirmPayment() {
+    // Hide modal
+    bootstrap.Modal.getInstance(document.getElementById('paymentPreviewModal')).hide();
+    
+    // Submit form
+    document.getElementById('paymentForm').submit();
+}
+
+function resetForm() {
+    if (confirm('Are you sure you want to reset the form? All entered data will be lost.')) {
+        document.getElementById('paymentForm').reset();
+        document.getElementById('selectedStudentId').value = '';
+        document.getElementById('studentInfo').classList.add('d-none');
+        document.getElementById('additionalFields').classList.add('d-none');
+        document.getElementById('studentSearch').value = '';
+        document.getElementById('studentResults').innerHTML = '';
+        selectedStudentData = null;
+        updatePaymentSummary();
+    }
+}
+</script>
+{% endblock %}

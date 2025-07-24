@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Student Tuition System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">Admin Dashboard</h1>
+        <p class="text-muted">Welcome back, {{ current_user.email }}!</p>
+    </div>
+    <div class="text-end">
+        <small class="text-muted">Last login: {{ 'Just now' }}</small>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase fw-bold small mb-1">Total Students</div>
+                        <div class="h4 mb-0">{{ total_students }}</div>
+                        <div class="small text-dark">
+                            <i class="bi bi-arrow-up me-1"></i>
+                            <span class="fw-bold">12%</span> from last month
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-people display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card-secondary h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase fw-bold small mb-1">Active Courses</div>
+                        <div class="h4 mb-0">{{ total_courses }}</div>
+                        <div class="small text-dark">
+                            <i class="bi bi-arrow-up me-1"></i>
+                            <span class="fw-bold">3%</span> from last month
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-book display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase fw-bold small mb-1">Total Payments</div>
+                        <div class="h4 mb-0">₱{{ "{:,.2f}".format(total_payments) }}</div>
+                        <div class="small text-dark">
+                            <i class="bi bi-arrow-up me-1"></i>
+                            <span class="fw-bold">8%</span> from last month
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-cash-coin display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card-secondary h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase fw-bold small mb-1">Active Cashiers</div>
+                        <div class="h4 mb-0">{{ total_active_cashiers }}</div>
+                        <div class="small text-dark">
+                            <i class="bi bi-dash me-1"></i>
+                            <span class="fw-bold">0%</span> from last month
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-person-badge display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning-charge me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('admin.add_student') }}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column justify-content-center">
+                            <i class="bi bi-person-plus display-6 mb-2"></i>
+                            <span>Add New Student</span>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('admin.add_course') }}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column justify-content-center">
+                            <i class="bi bi-book-half display-6 mb-2"></i>
+                            <span>Add New Course</span>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('admin.add_cashier') }}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column justify-content-center">
+                            <i class="bi bi-person-badge display-6 mb-2"></i>
+                            <span>Manage Cashiers</span>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column justify-content-center">
+                            <i class="bi bi-journal-text display-6 mb-2"></i>
+                            <span>View System Logs</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activities & Payment Overview -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-activity me-2"></i>
+                    Recent Activities
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Activity</th>
+                                <th>User</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in recent_activities or [
+                                {'time': '10:30 AM', 'activity': 'Payment received from John Doe', 'user': 'Cashier 1', 'status': 'success'},
+                                {'time': '10:15 AM', 'activity': 'New student registered: Jane Smith', 'user': 'Admin', 'status': 'info'},
+                                {'time': '09:45 AM', 'activity': 'Course updated: Web Development', 'user': 'Admin', 'status': 'warning'},
+                                {'time': '09:30 AM', 'activity': 'Payment received from Mike Johnson', 'user': 'Cashier 2', 'status': 'success'},
+                                {'time': '09:15 AM', 'activity': 'Cashier login: Sarah Wilson', 'user': 'Cashier 3', 'status': 'info'}
+                            ] %}
+                            <tr>
+                                <td>{{ activity.time }}</td>
+                                <td>{{ activity.activity }}</td>
+                                <td>{{ activity.user }}</td>
+                                <td>
+                                    <span class="badge bg-{{ activity.status }}">
+                                        {% if activity.status == 'success' %}
+                                            <i class="bi bi-check-circle me-1"></i>Completed
+                                        {% elif activity.status == 'info' %}
+                                            <i class="bi bi-info-circle me-1"></i>Info
+                                        {% elif activity.status == 'warning' %}
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Updated
+                                        {% endif %}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-pie-chart me-2"></i>
+                    Payment Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Fully Paid</span>
+                        <span class="fw-bold">{{ 120 }} students</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-success" style="width: {{  77 }}%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Partially Paid</span>
+                        <span class="fw-bold">{{  28 }} students</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-warning" style="width: {{ 18 }}%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Unpaid</span>
+                        <span class="fw-bold">{{  8 }} students</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-danger" style="width: {{ 5 }}%"></div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('admin.students') }}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-eye me-1"></i>
+                        View All Students
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Revenue Chart -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Monthly Revenue Overview
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Revenue Chart
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    const revenueChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            datasets: [{
+                label: 'Monthly Revenue (₱)',
+                data: [180000, 195000, 220000, 210000, 240000, 235000, 260000, 275000, 290000, 285000, 310000, 325000],
+                borderColor: '#B2DFDB',
+                backgroundColor: 'rgba(178, 223, 219, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#80CBC4',
+                pointBorderColor: '#B2DFDB',
+                pointBorderWidth: 2,
+                pointRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        color: '#37474F'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(55, 71, 79, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#B2DFDB',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: ₱' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0,0,0,0.1)'
+                    },
+                    ticks: {
+                        color: '#37474F',
+                        callback: function(value) {
+                            return '₱' + value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(0,0,0,0.1)'
+                    },
+                    ticks: {
+                        color: '#37474F'
+                    }
+                }
+            },
+            elements: {
+                point: {
+                    hoverRadius: 8
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

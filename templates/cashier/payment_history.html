@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block title %}Payment History - Student Tuition System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">Payment History</h1>
+        <p class="text-muted">View and manage all payment transactions</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel me-2"></i>Filter
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="printReport()">
+            <i class="bi bi-printer me-2"></i>Print Report
+        </button>
+        <button type="button" class="btn btn-primary" onclick="exportToExcel()">
+            <i class="bi bi-file-earmark-excel me-2"></i>Export Excel
+        </button>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">{{ total_payments or 342 }}</div>
+                <div class="small text-uppercase fw-bold">Total Payments</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card stats-card-secondary">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">₱{{ "{:,.2f}".format(total_amount or 2750890.00) }}</div>
+                <div class="small text-uppercase fw-bold">Total Amount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">₱{{ "{:,.2f}".format(todays_total or 45750.00) }}</div>
+                <div class="small text-uppercase fw-bold">Today's Total</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card stats-card-secondary">
+            <div class="card-body text-center">
+                <div class="h4 mb-1">₱{{ "{:,.2f}".format(monthly_total or 567890.00) }}</div>
+                <div class="small text-uppercase fw-bold">This Month</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Filter Buttons -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-primary filter-btn active" data-filter="all">
+                        All Payments
+                    </button>
+                    <button type="button" class="btn btn-outline-success filter-btn" data-filter="today">
+                        Today
+                    </button>
+                    <button type="button" class="btn btn-outline-info filter-btn" data-filter="week">
+                        This Week
+                    </button>
+                    <button type="button" class="btn btn-outline-warning filter-btn" data-filter="month">
+                        This Month
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="pending">
+                        Pending
+                    </button>
+                    <button type="button" class="btn btn-outline-danger filter-btn" data-filter="cash">
+                        Cash Only
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment History Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-table me-2"></i>
+                        Payment Records
+                    </h5>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="input-group" style="width: 300px;">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Search student, receipt...">
+                            <button class="btn btn-outline-secondary" type="button">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <select class="form-select" id="recordsPerPage" style="width: auto;">
+                            <option value="10">10 per page</option>
+                            <option value="25" selected>25 per page</option>
+                            <option value="50">50 per page</option>
+                            <option value="100">100 per page</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="paymentTable">
+                        <thead>
+                            <tr>
+                                <th>Receipt #</th>
+                                <th>Date & Time</th>
+                                <th>Student</th>
+                                <th>Course</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in payment_history or [
+                                {'receipt': 'RCT-2025-001', 'datetime': '2025-06-30 14:30', 'student': 'John Doe', 'student_id': 'STU-2024-001', 'course': 'Web Development', 'amount': 12500.00, 'method': 'Cash', 'status': 'completed', 'reference': ''},
+                                {'receipt': 'RCT-2025-002', 'datetime': '2025-06-30 14:15', 'student': 'Jane Smith', 'student_id': 'STU-2024-002', 'course': 'Mobile Development', 'amount': 15000.00, 'method': 'Bank Transfer', 'status': 'completed', 'reference': 'BT-20250630-001'},
+                                {'receipt': 'RCT-2025-003', 'datetime': '2025-06-30 13:45', 'student': 'Mike Johnson', 'student_id': 'STU-2024-003', 'course': 'Data Science', 'amount': 8000.00, 'method': 'GCash', 'status': 'completed', 'reference': 'GC-789456123'},
+                                {'receipt': 'RCT-2025-004', 'datetime': '2025-06-30 13:30', 'student': 'Sarah Wilson', 'student_id': 'STU-2024-004', 'course': 'UI/UX Design', 'amount': 5000.00, 'method': 'Cash', 'status': 'completed', 'reference': ''},
+                                {'receipt': 'RCT-2025-005', 'datetime': '2025-06-30 12:45', 'student': 'David Brown', 'student_id': 'STU-2024-005', 'course': 'Cybersecurity', 'amount': 4250.00, 'method': 'Credit Card', 'status': 'pending', 'reference': 'CC-4532-****-1234'},
+                                {'receipt': 'RCT-2025-006', 'datetime': '2025-06-29 16:20', 'student': 'Lisa Garcia', 'student_id': 'STU-2024-006', 'course': 'Digital Marketing', 'amount': 10000.00, 'method': 'PayMaya', 'status': 'completed', 'reference': 'PM-987654321'},
+                                {'receipt': 'RCT-2025-007', 'datetime': '2025-06-29 15:10', 'student': 'Robert Chen', 'student_id': 'STU-2024-007', 'course': 'Machine Learning', 'amount': 18000.00, 'method': 'Bank Transfer', 'status': 'completed', 'reference': 'BT-20250629-005'},
+                                {'receipt': 'RCT-2025-008', 'datetime': '2025-06-29 14:30', 'student': 'Emily Davis', 'student_id': 'STU-2024-008', 'course': 'Web Development', 'amount': 7500.00, 'method': 'Cash', 'status': 'completed', 'reference': ''},
+                                {'receipt': 'RCT-2025-009', 'datetime': '2025-06-29 11:15', 'student': 'James Miller', 'student_id': 'STU-2024-009', 'course': 'Cloud Computing', 'amount': 13500.00, 'method': 'GCash', 'status': 'completed', 'reference': 'GC-456789012'},
+                                {'receipt': 'RCT-2025-010', 'datetime': '2025-06-28 16:45', 'student': 'Anna Taylor', 'student_id': 'STU-2024-010', 'course': 'DevOps', 'amount': 11000.00, 'method': 'Credit Card', 'status': 'failed', 'reference': 'CC-5678-****-9012'}
+                            ] %}
+                            <tr data-status="{{ payment.status }}" data-method="{{ payment.method }}" data-date="{{ payment.datetime[:10] }}">
+                                <td>
+                                    <strong class="text-primary">{{ payment.receipt }}</strong>
+                                </td>
+                                <td>
+                                    <div>{{ payment.datetime[:10] }}</div>
+                                    <small class="text-muted">{{ payment.datetime[11:16] }}</small>
+                                </td>
+                                <td>
+                                    <div><strong>{{ payment.student }}</strong></div>
+                                    <small class="text-muted">{{ payment.student_id }}</small>
+                                </td>
+                                <td>{{ payment.course }}</td>
+                                <td><strong>₱{{ "{:,.2f}".format(payment.amount) }}</strong></td>
+                                <td>
+                                    <span class="badge bg-light text-dark">
+                                        {% if payment.method == 'Cash' %}
+                                            <i class="bi bi-cash me-1"></i>
+                                        {% elif payment.method == 'Bank Transfer' %}
+                                            <i class="bi bi-bank me-1"></i>
+                                        {% elif payment.method in ['GCash', 'PayMaya'] %}
+                                            <i class="bi bi-phone me-1"></i>
+                                        {% else %}
+                                            <i class="bi bi-credit-card me-1"></i>
+                                        {% endif %}
+                                        {{ payment.method }}
+                                    </span>
+                                    {% if payment.reference %}
+                                        <br><small class="text-muted">{{ payment.reference }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if payment.status == 'completed' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle me-1"></i>Completed
+                                        </span>
+                                    {% elif payment.status == 'pending' %}
+                                        <span class="badge bg-warning">
+                                            <i class="bi bi-hourglass-split me-1"></i>Pending
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle me-1"></i>Failed
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="viewReceipt('{{ payment.receipt }}')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="printReceipt('{{ payment.receipt }}')">
+                                            <i class="bi bi-printer"></i>
+                                        </button>
+                                        {% if payment.status == 'pending' %}
+                                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="updatePaymentStatus('{{ payment.receipt }}', 'completed')">
+                                            <i class="bi bi-check"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-muted">
+                        Showing <span id="showingStart">1</span> to <span id="showingEnd">10</span> of <span id="totalRecords">342</span> payments
+                    </div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" tabindex="-1">Previous</a>
+                            </li>
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link" href="#">3</a></li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Advanced Filter</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="filterForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Date From</label>
+                            <input type="date" class="form-control" id="dateFrom">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Date To</label>
+                            <input type="date" class="form-control" id="dateTo">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Payment Method</label>
+                            <select class="form-select" id="paymentMethodFilter">
+                                <option value="">All Methods</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="GCash">GCash</option>
+                                <option value="PayMaya">PayMaya</option>
+                                <option value="Credit Card">Credit Card</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="statusFilter">
+                                <option value="">All Status</option>
+                                <option value="completed">Completed</option>
+                                <option value="pending">Pending</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Min Amount</label>
+                            <input type="number" class="form-control" id="minAmount" step="0.01">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Max Amount</label>
+                            <input type="number" class="form-control" id="maxAmount" step="0.01">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Course</label>
+                        <select class="form-select" id="courseFilter">
+                            <option value="">All Courses</option>
+                            <option value="Web Development">Web Development</option>
+                            <option value="Mobile Development">Mobile Development</option>
+                            <option value="Data Science">Data Science</option>
+                            <option value="UI/UX Design">UI/UX Design</option>
+                            <option value="Cybersecurity">Cybersecurity</option>
+                            <option value="Digital Marketing">Digital Marketing</option>
+                            <option value="Machine Learning">Machine Learning</option>
+                            <option value="Cloud Computing">Cloud Computing</option>
+                            <option value="DevOps">DevOps</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="clearFilters()">Clear All</button>
+                <button type="button" class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter buttons functionality
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            filterPayments(this.dataset.filter);
+        });
+    });
+
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', function() {
+        searchPayments(this.value);
+    });
+});
+
+function filterPayments(filter) {
+    const rows = document.querySelectorAll('#paymentTable tbody tr');
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    rows.forEach(row => {
+        const status = row.dataset.status;
+        const method = row.dataset.method;
+        const date = row.dataset.date;
+        let show = false;
+
+        switch(filter) {
+            case 'all':
+                show = true;
+                break;
+            case 'today':
+                show = date === today;
+                break;
+            case 'week':
+                show = date >= weekAgo;
+                break;
+            case 'month':
+                show = date >= monthAgo;
+                break;
+            case 'pending':
+                show = status === 'pending';
+                break;
+            case 'cash':
+                show = method === 'Cash';
+                break;
+        }
+
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+function searchPayments(query) {
+    const rows = document.querySelectorAll('#paymentTable tbody tr');
+    const searchTerm = query.toLowerCase();
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function viewReceipt(receiptId) {
+    alert(`Viewing receipt: ${receiptId}`);
+    // Implementation for viewing receipt details
+}
+
+function printReceipt(receiptId) {
+    alert(`Printing receipt: ${receiptId}`);
+    // Implementation for printing receipt
+}
+
+function updatePaymentStatus(receiptId, newStatus) {
+    if (confirm(`Are you sure you want to mark payment ${receiptId} as ${newStatus}?`)) {
+        alert(`Payment ${receiptId} status updated to ${newStatus}`);
+        // Implementation for updating payment status
+        location.reload();
+    }
+}
+
+function printReport() {
+    window.print();
+}
+
+function exportToExcel() {
+    alert('Exporting payment history to Excel...');
+    // Implementation for Excel export
+}
+
+function clearFilters() {
+    document.getElementById('filterForm').reset();
+    applyFilters();
+}
+
+function applyFilters() {
+    // Get filter values
+    const dateFrom = document.getElementById('dateFrom').value;
+    const dateTo = document.getElementById('dateTo').value;
+    const paymentMethod = document.getElementById('paymentMethodFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const minAmount = document.getElementById('minAmount').value;
+    const maxAmount = document.getElementById('maxAmount').value;
+    const course = document.getElementById('courseFilter').value;
+
+    // Apply filters to table
+    const rows = document.querySelectorAll('#paymentTable tbody tr');
+    rows.forEach(row => {
+        let show = true;
+        const rowDate = row.dataset.date;
+        const rowMethod = row.dataset.method;
+        const rowStatus = row.dataset.status;
+        const rowAmount = parseFloat(row.cells[4].textContent.replace(/[₱,]/g, ''));
+        const rowCourse = row.cells[3].textContent;
+
+        // Apply date filters
+        if (dateFrom && rowDate < dateFrom) show = false;
+        if (dateTo && rowDate > dateTo) show = false;
+        
+        // Apply other filters
+        if (paymentMethod && rowMethod !== paymentMethod) show = false;
+        if (status && rowStatus !== status) show = false;
+        if (minAmount && rowAmount < parseFloat(minAmount)) show = false;
+        if (maxAmount && rowAmount > parseFloat(maxAmount)) show = false;
+        if (course && rowCourse !== course) show = false;
+
+        row.style.display = show ? '' : 'none';
+    });
+
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('filterModal'));
+    modal.hide();
+}
+</script>
+{% endblock %}

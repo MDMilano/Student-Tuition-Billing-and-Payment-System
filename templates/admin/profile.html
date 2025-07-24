@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Profile - Student Tuition System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">Profile Settings</h1>
+        <p class="text-muted">Manage your account information and security settings</p>
+    </div>
+    <div class="text-end">
+        <small class="text-muted">Last updated: {{ profile.last_updated or 'Never' }}</small>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Profile Information -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-circle me-2"></i>
+                    Personal Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="profileForm" method="POST" enctype="multipart/form-data">
+                    <div class="row g-3">
+                        <div class="col-12 text-center mb-4">
+                            <div class="position-relative d-inline-block">
+                                <img src="{{ profile.avatar_url or 'https://via.placeholder.com/120x120/B2DFDB/37474F?text=Admin' }}" 
+                                     alt="Profile Picture" 
+                                     class="rounded-circle border border-3 border-primary" 
+                                     width="120" height="120" id="profileImage">
+                                <button type="button" class="btn btn-primary btn-sm position-absolute bottom-0 end-0 rounded-circle" 
+                                        onclick="document.getElementById('avatarInput').click()">
+                                    <i class="bi bi-camera"></i>
+                                </button>
+                                <input type="file" id="avatarInput" name="avatar" accept="image/*" class="d-none" 
+                                       onchange="previewImage(this)">
+                            </div>
+                            <div class="mt-2">
+                                <h6 class="mb-0">{{ profile.full_name or session.user_name or 'Administrator' }}</h6>
+                                <small class="text-muted">Administrator</small>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="firstName" class="form-label">First Name *</label>
+                            <input type="text" class="form-control" id="firstName" name="first_name" 
+                                   value="{{ profile.first_name or 'John' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lastName" class="form-label">Last Name *</label>
+                            <input type="text" class="form-control" id="lastName" name="last_name" 
+                                   value="{{ profile.last_name or 'Admin' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="email" class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ profile.email or 'admin@school.com' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" 
+                                   value="{{ profile.phone or '+63 912 345 6789' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="dateOfBirth" class="form-label">Date of Birth</label>
+                            <input type="date" class="form-control" id="dateOfBirth" name="date_of_birth" 
+                                   value="{{ profile.date_of_birth or '1985-01-15' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="position" class="form-label">Position</label>
+                            <input type="text" class="form-control" id="position" name="position" 
+                                   value="{{ profile.position or 'System Administrator' }}" readonly>
+                        </div>
+                        <div class="col-12">
+                            <label for="address" class="form-label">Address</label>
+                            <textarea class="form-control" id="address" name="address" rows="3">{{ profile.address or 'Manila, Philippines' }}</textarea>
+                        </div>
+                        <div class="col-12">
+                            <label for="bio" class="form-label">Bio/Notes</label>
+                            <textarea class="form-control" id="bio" name="bio" rows="3" 
+                                      placeholder="Tell us about yourself...">{{ profile.bio or '' }}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-2"></i>Save Changes
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                            <i class="bi bi-arrow-clockwise me-2"></i>Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Security & Quick Stats -->
+    <div class="col-lg-4">
+        <!-- Change Password -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-shield-lock me-2"></i>
+                    Change Password
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="passwordForm" method="POST">
+                    <div class="mb-3">
+                        <label for="currentPassword" class="form-label">Current Password *</label>
+                        <input type="password" class="form-control" id="currentPassword" name="current_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">New Password *</label>
+                        <input type="password" class="form-control" id="newPassword" name="new_password" required>
+                        <div class="form-text">Minimum 8 characters with letters and numbers</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmNewPassword" class="form-label">Confirm New Password *</label>
+                        <input type="password" class="form-control" id="confirmNewPassword" name="confirm_new_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100">
+                        <i class="bi bi-key me-2"></i>Update Password
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Account Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Account Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">User ID</small>
+                    <div class="fw-bold">{{ profile.user_id or 'ADM-001' }}</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Account Created</small>
+                    <div class="fw-bold">{{ profile.created_date or 'January 15, 2024' }}</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Last Login</small>
+                    <div class="fw-bold">{{ profile.last_login or 'Today, 10:30 AM' }}</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Role</small>
+                    <div>
+                        <span class="badge bg-primary">
+                            <i class="bi bi-shield-check me-1"></i>Administrator
+                        </span>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <small class="text-muted">Status</small>
+                    <div>
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle me-1"></i>Active
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Your Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Students Added</span>
+                    <span class="fw-bold">{{ activity.students_added or 45 }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Courses Created</span>
+                    <span class="fw-bold">{{ activity.courses_created or 12 }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Cashiers Managed</span>
+                    <span class="fw-bold">{{ activity.cashiers_managed or 8 }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-0">
+                    <span>Login Sessions</span>
+                    <span class="fw-bold">{{ activity.login_sessions or 156 }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Messages -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="liveToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-check-circle-fill text-success me-2"></i>
+            <strong class="me-auto">Success</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            Profile updated successfully!
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password form validation
+    const passwordForm = document.getElementById('passwordForm');
+    const newPasswordInput = document.getElementById('newPassword');
+    const confirmPasswordInput = document.getElementById('confirmNewPassword');
+
+    function validatePasswords() {
+        if (newPasswordInput.value !== confirmPasswordInput.value) {
+            confirmPasswordInput.setCustomValidity('Passwords do not match');
+        } else {
+            confirmPasswordInput.setCustomValidity('');
+        }
+    }
+
+    newPasswordInput.addEventListener('input', validatePasswords);
+    confirmPasswordInput.addEventListener('input', validatePasswords);
+
+    // Password strength indicator
+    newPasswordInput.addEventListener('input', function() {
+        const password = this.value;
+        const strengthIndicator = document.getElementById('passwordStrength');
+        
+        if (password.length >= 8 && /[A-Za-z]/.test(password) && /[0-9]/.test(password)) {
+            if (strengthIndicator) {
+                strengthIndicator.className = 'text-success';  
+                strengthIndicator.textContent = 'Strong password';
+            }
+        } else if (password.length >= 6) {
+            if (strengthIndicator) {
+                strengthIndicator.className = 'text-warning';
+                strengthIndicator.textContent = 'Medium strength';
+            }
+        } else if (password.length > 0) {
+            if (strengthIndicator) {
+                strengthIndicator.className = 'text-danger';
+                strengthIndicator.textContent = 'Weak password';
+            }
+        }
+    });
+
+    // Profile form submission
+    document.getElementById('profileForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        showToast('Profile updated successfully!', 'success');
+    });
+
+    // Password form submission
+    passwordForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (newPasswordInput.value === confirmPasswordInput.value) {
+            showToast('Password changed successfully!', 'success');
+            passwordForm.reset();
+        }
+    });
+});
+
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('profileImage').src = e.target.result;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function resetForm() {
+    if (confirm('Are you sure you want to reset all changes?')) {
+        document.getElementById('profileForm').reset();
+        // Reset image to original
+        document.getElementById('profileImage').src = "{{ profile.avatar_url or 'https://via.placeholder.com/120x120/B2DFDB/37474F?text=Admin' }}";
+    }
+}
+
+function showToast(message, type = 'success') {
+    const toastElement = document.getElementById('liveToast');
+    const toastBody = toastElement.querySelector('.toast-body');
+    const toastHeader = toastElement.querySelector('.toast-header i');
+    
+    toastBody.textContent = message;
+    
+    if (type === 'success') {
+        toastHeader.className = 'bi bi-check-circle-fill text-success me-2';
+    } else if (type === 'error') {
+        toastHeader.className = 'bi bi-x-circle-fill text-danger me-2';
+    }
+    
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+}
+</script>
+{% endblock %}

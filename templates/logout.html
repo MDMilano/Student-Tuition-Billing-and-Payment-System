@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Logged Out - Student Tuition System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center min-vh-100">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-lg">
+                <div class="card-body text-center p-5">
+                    <div class="mb-4">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                    </div>
+                    
+                    <h3 class="mb-3">Successfully Logged Out</h3>
+                    <p class="text-muted mb-4">
+                        You have been safely logged out of the Student Tuition System. 
+                        Thank you for using our platform!
+                    </p>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>
+                            Sign In Again
+                        </a>
+                        <button type="button" class="btn btn-outline-secondary" onclick="window.close()">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Close Window
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-footer text-center bg-transparent">
+                    <small class="text-muted">
+                        Session ended at {{ current_time or 'now' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-redirect to login after 5 seconds
+    setTimeout(function() {
+        window.location.href = "{{ url_for('auth.login') }}";
+    }, 5000);
+    
+    // Show countdown
+    let countdown = 5;
+    const timer = setInterval(function() {
+        countdown--;
+        if (countdown > 0) {
+            document.title = `Redirecting in ${countdown}s - Student Tuition System`;
+        } else {
+            clearInterval(timer);
+        }
+    }, 1000);
+});
+</script>
+{% endblock %}

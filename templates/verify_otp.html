@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Verify OTP - Student Tuition System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center min-vh-100">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-lg">
+                <div class="card-header text-center py-4">
+                    <div class="mb-3">
+                        <i class="bi bi-shield-check display-4 text-dark"></i>
+                    </div>
+                    <h4 class="mb-0">Verify OTP</h4>
+                    <p class="text-muted mt-2">Enter the 6-digit code sent to your email</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-success">
+                        <i class="bi bi-envelope-check me-2"></i>
+                        We've sent a verification code to <strong>{{ session.reset_email or 'your email' }}</strong>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('auth.verify_otp') }}">
+                        <div class="mb-4">
+                            <label for="otp" class="form-label text-center d-block">Enter 6-Digit Code</label>
+                            <div class="d-flex justify-content-center">
+                                <div class="otp-input-group">
+                                    <input type="text" class="form-control otp-input text-center" maxlength="1" name="otp1" required>
+                                    <input type="text" class="form-control otp-input text-center" maxlength="1" name="otp2" required>
+                                    <input type="text" class="form-control otp-input text-center" maxlength="1" name="otp3" required>
+                                    <input type="text" class="form-control otp-input text-center" maxlength="1" name="otp4" required>
+                                    <input type="text" class="form-control otp-input text-center" maxlength="1" name="otp5" required>
+                                    <input type="text" class="form-control otp-input text-center" maxlength="1" name="otp6" required>
+                                </div>
+                            </div>
+                            <input type="hidden" name="otp" id="fullOtp">
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle me-2"></i>
+                                Verify Code
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <p class="mb-2">
+                            <span class="text-muted">Didn't receive the code?</span>
+                        </p>
+                        <button class="btn btn-link p-0 text-decoration-none" id="resendOtp">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Resend OTP (<span id="countdown">60</span>s)
+                        </button>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('auth.forgot_password') }}" class="text-decoration-none">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Change Email
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.otp-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.otp-input {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+}
+
+.otp-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(178, 223, 219, 0.25);
+}
+
+.otp-input.filled {
+    background-color: var(--primary-color);
+    color: var(--text-dark);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const otpInputs = document.querySelectorAll('.otp-input');
+    const fullOtpInput = document.getElementById('fullOtp');
+    const resendBtn = document.getElementById('resendOtp');
+    const countdownElement = document.getElementById('countdown');
+
+    let countdown = 60;
+    let countdownInterval;
+
+    // OTP Input Logic
+    otpInputs.forEach((input, index) => {
+        input.addEventListener('input', function(e) {
+            // Only allow numbers
+            this.value = this.value.replace(/[^0-9]/g, '');
+
+            if (this.value.length === 1) {
+                this.classList.add('filled');
+                // Move to next input
+                if (index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                }
+            } else {
+                this.classList.remove('filled');
+            }
+
+            updateFullOtp();
+        });
+
+        input.addEventListener('keydown', function(e) {
+            // Handle backspace
+            if (e.key === 'Backspace' && this.value === '' && index > 0) {
+                otpInputs[index - 1].focus();
+                otpInputs[index - 1].value = '';
+                otpInputs[index - 1].classList.remove('filled');
+                updateFullOtp();
+            }
+
+            // Handle arrow keys
+            if (e.key === 'ArrowLeft' && index > 0) {
+                otpInputs[index - 1].focus();
+            }
+            if (e.key === 'ArrowRight' && index < otpInputs.length - 1) {
+                otpInputs[index + 1].focus();
+            }
+        });
+
+        input.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedData = e.clipboardData.getData('text');
+            const numbers = pastedData.replace(/[^0-9]/g, '').slice(0, 6);
+
+            for (let i = 0; i < numbers.length && i < otpInputs.length; i++) {
+                otpInputs[i].value = numbers[i];
+                otpInputs[i].classList.add('filled');
+            }
+            updateFullOtp();
+        });
+    });
+
+    function updateFullOtp() {
+        const otp = Array.from(otpInputs).map(input => input.value).join('');
+        fullOtpInput.value = otp;
+    }
+
+    // Countdown Timer
+    function startCountdown() {
+        resendBtn.disabled = true;
+        resendBtn.classList.add('disabled');
+
+        countdownInterval = setInterval(() => {
+            countdown--;
+            countdownElement.textContent = countdown;
+
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                resendBtn.disabled = false;
+                resendBtn.classList.remove('disabled');
+                resendBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Resend OTP';
+                countdown = 60;
+            }
+        }, 1000);
+    }
+
+    // Resend OTP
+    resendBtn.addEventListener('click', function() {
+        // Clear existing OTP
+        otpInputs.forEach(input => {
+            input.value = '';
+            input.classList.remove('filled');
+        });
+
+        // Focus first input
+        otpInputs[0].focus();
+
+        // Start countdown
+        startCountdown();
+
+        // Send AJAX request to resend OTP
+        fetch('{{ url_for("auth.resend_otp") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    <i class="bi bi-check-circle me-2"></i>
+                    New OTP sent successfully!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.card-body').insertBefore(alert, document.querySelector('form'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+
+    // Auto-focus first input
+    otpInputs[0].focus();
+
+    // Start initial countdown
+    startCountdown();
+});
+</script>
+{% endblock %}

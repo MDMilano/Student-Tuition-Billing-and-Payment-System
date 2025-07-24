@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}Cashier Dashboard - Student Tuition System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">Cashier Dashboard</h1>
+        <p class="text-muted">Welcome back, {{ session.user_name }}!</p>
+    </div>
+    <div class="text-end">
+        <small class="text-muted">Today: {{ current_date or 'Monday, June 30, 2025' }}</small>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase fw-bold small mb-1">Today's Collections</div>
+                        <div class="h4 mb-0">₱{{ "{:,.2f}".format(stats.today_collections or 45750.00) }}</div>
+                        <div class="small text-dark">
+                            <i class="bi bi-arrow-up me-1"></i>
+                            <span class="fw-bold">{{ stats.today_payments or 12 }}</span> payments received
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-cash-coin display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card-secondary h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase fw-bold small mb-1">Pending Payments</div>
+                        <div class="h4 mb-0">{{ stats.pending_payments or 28 }}</div>
+                        <div class="small text-dark">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            <span class="fw-bold">₱{{ "{:,.2f}".format(stats.pending_amount or 385000.00) }}</span> total
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-hourglass-split display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase fw-bold small mb-1">Students Handled</div>
+                        <div class="h4 mb-0">{{ stats.students_handled or 87 }}</div>
+                        <div class="small text-dark">
+                            <i class="bi bi-people me-1"></i>
+                            <span class="fw-bold">Active</span> students
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-people display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card-secondary h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase fw-bold small mb-1">This Month</div>
+                        <div class="h4 mb-0">₱{{ "{:,.2f}".format(stats.monthly_collections or 567890.00) }}</div>
+                        <div class="small text-dark">
+                            <i class="bi bi-calendar-month me-1"></i>
+                            <span class="fw-bold">{{ stats.monthly_payments or 156 }}</span> transactions
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-graph-up display-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning-charge me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('cashier.collect_payment') }}" class="btn btn-primary w-100 h-100 d-flex flex-column justify-content-center">
+                            <i class="bi bi-credit-card display-6 mb-2"></i>
+                            <span>Collect Payment</span>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('cashier.students') }}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column justify-content-center">
+                            <i class="bi bi-people display-6 mb-2"></i>
+                            <span>View Students</span>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('cashier.payment_history') }}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column justify-content-center">
+                            <i class="bi bi-clock-history display-6 mb-2"></i>
+                            <span>Payment History</span>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <button type="button" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column justify-content-center" onclick="generateReport()">
+                            <i class="bi bi-file-earmark-text display-6 mb-2"></i>
+                            <span>Generate Report</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Payments & Payment Status Overview -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Recent Payments
+                    </h5>
+                    <a href="{{ url_for('cashier.payment_history') }}" class="btn btn-sm btn-outline-primary">
+                        View All
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Student</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in recent_payments or [
+                                {'time': '2:30 PM', 'student': 'John Doe (STU-2024-001)', 'amount': 12500.00, 'method': 'Cash', 'status': 'completed'},
+                                {'time': '2:15 PM', 'student': 'Jane Smith (STU-2024-002)', 'amount': 15000.00, 'method': 'Bank Transfer', 'status': 'completed'},
+                                {'time': '1:45 PM', 'student': 'Mike Johnson (STU-2024-003)', 'amount': 8000.00, 'method': 'GCash', 'status': 'completed'},
+                                {'time': '1:30 PM', 'student': 'Sarah Wilson (STU-2024-004)', 'amount': 5000.00, 'method': 'Cash', 'status': 'completed'},
+                                {'time': '12:45 PM', 'student': 'David Brown (STU-2024-005)', 'amount': 4250.00, 'method': 'Credit Card', 'status': 'pending'}
+                            ] %}
+                            <tr>
+                                <td>{{ payment.time }}</td>
+                                <td>{{ payment.student }}</td>
+                                <td><strong>₱{{ "{:,.2f}".format(payment.amount) }}</strong></td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ payment.method }}</span>
+                                </td>
+                                <td>
+                                    {% if payment.status == 'completed' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle me-1"></i>Completed
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning">
+                                            <i class="bi bi-hourglass-split me-1"></i>Pending
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-pie-chart me-2"></i>
+                    Payment Methods Used
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span><i class="bi bi-cash text-success me-2"></i>Cash</span>
+                        <span class="fw-bold">45%</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-success" style="width: 45%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span><i class="bi bi-bank text-primary me-2"></i>Bank Transfer</span>
+                        <span class="fw-bold">30%</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-primary" style="width: 30%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span><i class="bi bi-phone text-info me-2"></i>GCash/PayMaya</span>
+                        <span class="fw-bold">20%</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-info" style="width: 20%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span><i class="bi bi-credit-card text-warning me-2"></i>Credit Card</span>
+                        <span class="fw-bold">5%</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-warning" style="width: 5%"></div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <small class="text-muted">Based on this month's data</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Students Requiring Attention -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                    Students Requiring Attention
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Course</th>
+                                <th>Total Fee</th>
+                                <th>Balance</th>
+                                <th>Days Overdue</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in attention_students or [
+                                {'name': 'Mike Johnson', 'id': 'STU-2024-003', 'course': 'Mobile Development', 'total_fee': 28000.00, 'balance': 28000.00, 'days_overdue': 15},
+                                {'name': 'Lisa Garcia', 'id': 'STU-2024-007', 'course': 'Data Science', 'total_fee': 30000.00, 'balance': 20000.00, 'days_overdue': 8},
+                                {'name': 'Robert Chen', 'id': 'STU-2024-012', 'course': 'Web Development', 'total_fee': 25000.00, 'balance': 12500.00, 'days_overdue': 5}
+                            ] %}
+                            <tr>
+                                <td>
+                                    <strong>{{ student.name }}</strong><br>
+                                    <small class="text-muted">{{ student.id }}</small>
+                                </td>
+                                <td>{{ student.course }}</td>
+                                <td>₱{{ "{:,.2f}".format(student.total_fee) }}</td>
+                                <td><strong class="text-danger">₱{{ "{:,.2f}".format(student.balance) }}</strong></td>
+                                <td>
+                                    <span class="badge bg-danger">{{ student.days_overdue }} days</span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('cashier.collect_payment', student_id=student.id) }}"
+                                       class="btn btn-sm btn-primary">
+                                        <i class="bi bi-credit-card me-1"></i>Collect Payment
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh data every 5 minutes
+    setInterval(function() {
+        location.reload();
+    }, 300000);
+
+    // Real-time clock
+    updateClock();
+    setInterval(updateClock, 1000);
+});
+
+function updateClock() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    const dateString = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    // Update clock display if element exists
+    const clockElement = document.querySelector('.text-end small');
+    if (clockElement) {
+        clockElement.textContent = `Today: ${dateString} - ${timeString}`;
+    }
+}
+
+function generateReport() {
+    // Show loading state
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generating...';
+    button.disabled = true;
+
+    // Simulate report generation
+    setTimeout(() => {
+        alert('Daily report generated successfully!');
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }, 2000);
+}
+</script>
+{% endblock %}

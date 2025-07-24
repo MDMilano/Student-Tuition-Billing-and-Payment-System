@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+
+{% block title %}Students - Student Tuition System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">Students</h1>
+        <p class="text-muted">View and manage student payment information</p>
+    </div>
+    <div class="btn-group" role="group">
+        <a href="{{ url_for('cashier.collect_payment') }}" class="btn btn-primary">
+            <i class="bi bi-credit-card me-2"></i>
+            Collect Payment
+        </a>
+        <button type="button" class="btn btn-outline-secondary" onclick="printStudentList()">
+            <i class="bi bi-printer me-2"></i>
+            Print List
+        </button>
+    </div>
+</div>
+
+<!-- Search and Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="searchStudent" class="form-label">Search Students</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="searchStudent" placeholder="Search by name, email, or student ID">
+                    <button class="btn btn-outline-secondary" type="button">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label for="filterCourse" class="form-label">Filter by Course</label>
+                <select class="form-select" id="filterCourse">
+                    <option value="">All Courses</option>
+                    <option value="web-dev">Web Development</option>
+                    <option value="data-science">Data Science</option>
+                    <option value="mobile-dev">Mobile Development</option>
+                    <option value="ui-ux">UI/UX Design</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="filterStatus" class="form-label">Payment Status</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="">All Status</option>
+                    <option value="paid">Fully Paid</option>
+                    <option value="partial">Partially Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="overdue">Overdue</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="button" class="btn btn-secondary" onclick="applyFilters()">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Status Summary -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-success">{{ summary.fully_paid or 45 }}</h5>
+                <p class="card-text">Fully Paid</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-warning">{{ summary.partially_paid or 28 }}</h5>
+                <p class="card-text">Partially Paid</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-info">{{ summary.unpaid or 12 }}</h5>
+                <p class="card-text">Unpaid</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-danger">{{ summary.overdue or 8 }}</h5>
+                <p class="card-text">Overdue</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Students Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-people me-2"></i>
+                Students List
+            </h5>
+            <span class="badge bg-primary">Total: {{ total_students or 93 }} students</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="studentsTable">
+                <thead>
+                    <tr>
+                        <th>Student ID</th>
+                        <th>Name</th>
+                        <th>Course</th>
+                        <th>Total Fee</th>
+                        <th>Paid Amount</th>
+                        <th>Balance</th>
+                        <th>Last Payment</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students or [
+                        {'id': 'STU-2024-001', 'name': 'John Doe', 'course': 'Web Development', 'total_fee': 25000.00, 'paid_amount': 25000.00, 'balance': 0.00, 'last_payment': '2025-06-25', 'status': 'paid'},
+                        {'id': 'STU-2024-002', 'name': 'Jane Smith', 'course': 'Data Science', 'total_fee': 30000.00, 'paid_amount': 15000.00, 'balance': 15000.00, 'last_payment': '2025-06-20', 'status': 'partial'},
+                        {'id': 'STU-2024-003', 'name': 'Mike Johnson', 'course': 'Mobile Development', 'total_fee': 28000.00, 'paid_amount': 0.00, 'balance': 28000.00, 'last_payment': null, 'status': 'overdue'},
+                        {'id': 'STU-2024-004', 'name': 'Sarah Wilson', 'course': 'UI/UX Design', 'total_fee': 22000.00, 'paid_amount': 22000.00, 'balance': 0.00, 'last_payment': '2025-06-28', 'status': 'paid'},
+                        {'id': 'STU-2024-005', 'name': 'David Brown', 'course': 'Web Development', 'total_fee': 25000.00, 'paid_amount': 10000.00, 'balance': 15000.00, 'last_payment': '2025-06-18', 'status': 'partial'},
+                        {'id': 'STU-2024-006', 'name': 'Lisa Garcia', 'course': 'Data Science', 'total_fee': 30000.00, 'paid_amount': 0.00, 'balance': 30000.00, 'last_payment': null, 'status': 'unpaid'},
+                        {'id': 'STU-2024-007', 'name': 'Robert Chen', 'course': 'Mobile Development', 'total_fee': 28000.00, 'paid_amount': 14000.00, 'balance': 14000.00, 'last_payment': '2025-06-22', 'status': 'partial'},
+                        {'id': 'STU-2024-008', 'name': 'Emma Johnson', 'course': 'UI/UX Design', 'total_fee': 22000.00, 'paid_amount': 0.00, 'balance': 22000.00, 'last_payment': null, 'status': 'unpaid'}
+                    ] %}
+                    <tr data-course="{{ student.course }}" data-status="{{ student.status }}">
+                        <td><strong>{{ student.id }}</strong></td>
+                        <td>{{ student.name }}</td>
+                        <td>{{ student.course }}</td>
+                        <td>₱{{ "{:,.2f}".format(student.total_fee) }}</td>
+                        <td>₱{{ "{:,.2f}".format(student.paid_amount) }}</td>
+                        <td>
+                            {% if student.balance > 0 %}
+                                <strong class="text-danger">₱{{ "{:,.2f}".format(student.balance) }}</strong>
+                            {% else %}
+                                <span class="text-success">₱0.00</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if student.last_payment %}
+                                {{ student.last_payment }}
+                            {% else %}
+                                <span class="text-muted">No payment yet</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if student.status == 'paid' %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i>Fully Paid
+                                </span>
+                            {% elif student.status == 'partial' %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>Partially Paid
+                                </span>
+                            {% elif student.status == 'overdue' %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-exclamation-circle me-1"></i>Overdue
+                                </span>
+                            {% else %}
+                                <span class="badge bg-info">
+                                    <i class="bi bi-clock me-1"></i>Unpaid
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                        onclick="viewPaymentHistory('{{ student.id }}')" 
+                                        data-bs-toggle="tooltip" title="Payment History">
+                                    <i class="bi bi-clock-history"></i>
+                                </button>
+                                {% if student.balance > 0 %}
+                                <a href="{{ url_for('cashier.collect_payment', student_id=student.id) }}" 
+                                   class="btn btn-sm btn-primary" 
+                                   data-bs-toggle="tooltip" title="Collect Payment">
+                                    <i class="bi bi-credit-card"></i>
+                                </a>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                        onclick="printStudentDetails('{{ student.id }}')" 
+                                        data-bs-toggle="tooltip" title="Print Details">
+                                    <i class="bi bi-printer"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        <nav aria-label="Students pagination">
+            <ul class="pagination justify-content-center">
+                <li class="page-item disabled">
+                    <a class="page-link"><i class="bi bi-chevron-left"></i></a>
+                </li>
+                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Payment History Modal -->
+<div class="modal fade" id="paymentHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Payment History
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="paymentHistoryContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading payment history...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" onclick="printPaymentHistory()">
+                    <i class="bi bi-printer me-2"></i>Print
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Search functionality
+    const searchInput = document.getElementById('searchStudent');
+    searchInput.addEventListener('input', function() {
+        filterTable();
+    });
+
+    // Filter dropdowns
+    const courseFilter = document.getElementById('filterCourse');
+    const statusFilter = document.getElementById('filterStatus');
+    
+    courseFilter.addEventListener('change', filterTable);
+    statusFilter.addEventListener('change', filterTable);
+});
+
+function filterTable() {
+    const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
+    const courseFilter = document.getElementById('filterCourse').value;
+    const statusFilter = document.getElementById('filterStatus').value;
+    const table = document.getElementById('studentsTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const studentId = row.cells[0].textContent.toLowerCase();
+        const studentName = row.cells[1].textContent.toLowerCase();
+        const course = row.getAttribute('data-course');
+        const status = row.getAttribute('data-status');
+
+        let showRow = true;
+
+        // Search filter
+        if (searchTerm && !(studentId.includes(searchTerm) || studentName.includes(searchTerm))) {
+            showRow = false;
+        }
+
+        // Course filter
+        if (courseFilter && !course.toLowerCase().includes(courseFilter.replace('-', ' '))) {
+            showRow = false;
+        }
+
+        // Status filter
+        if (statusFilter && status !== statusFilter) {
+            showRow = false;
+        }
+
+        row.style.display = showRow ? '' : 'none';
+    }
+}
+
+function applyFilters() {
+    filterTable();
+}
+
+function viewPaymentHistory(studentId) {
+    const modal = new bootstrap.Modal(document.getElementById('paymentHistoryModal'));
+    const content = document.getElementById('paymentHistoryContent');
+    
+    // Show loading
+    content.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading payment history...</p>
+        </div>
+    `;
+
+    modal.show();
+
+    // Simulate API call
+    setTimeout(() => {
+        content.innerHTML = `
+            <div class="mb-3">
+                <h6>Student: ${studentId}</h6>
+                <small class="text-muted">Payment Transaction History</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Receipt #</th>
+                            <th>Cashier</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>2025-06-25 14:30</td>
+                            <td>₱15,000.00</td>
+                            <td>Bank Transfer</td>
+                            <td>RCP-2025-001234</td>
+                            <td>Cashier User</td>
+                        </tr>
+                        <tr>
+                            <td>2025-06-20 10:15</td>
+                            <td>₱10,000.00</td>
+                            <td>Cash</td>
+                            <td>RCP-2025-001198</td>
+                            <td>Cashier User</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }, 1500);
+}
+
+function printStudentList() {
+    window.print();
+}
+
+function printStudentDetails(studentId) {
+    alert(`Printing details for student: ${studentId}`);
+}
+
+function printPaymentHistory() {
+    const printContent = document.getElementById('paymentHistoryContent').innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Payment History</title>
+                <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+            </head>
+            <body>
+                <div class="container mt-4">
+                    <h3>Payment History Report</h3>
+                    ${printContent}
+                </div>
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+</script>
+{% endblock %}
