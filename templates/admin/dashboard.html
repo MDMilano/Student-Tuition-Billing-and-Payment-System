@@ -6,10 +6,10 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="h3 mb-0">Admin Dashboard</h1>
-        <p class="text-muted">Welcome back, {{ current_user.email }}!</p>
+        <p class="text-muted">Welcome back, {{ current_user.name }}!</p>
     </div>
     <div class="text-end">
-        <small class="text-muted">Last login: {{ 'Just now' }}</small>
+        <small class="text-muted">{{ moment().format('MMMM Do YYYY, h:mm a') if moment else 'Today' }}</small>
     </div>
 </div>
 
@@ -23,8 +23,8 @@
                         <div class="text-uppercase fw-bold small mb-1">Total Students</div>
                         <div class="h4 mb-0">{{ total_students }}</div>
                         <div class="small text-dark">
-                            <i class="bi bi-arrow-up me-1"></i>
-                            <span class="fw-bold">12%</span> from last month
+                            <i class="bi bi-people me-1"></i>
+                            <span class="fw-bold">Active enrollments</span>
                         </div>
                     </div>
                     <div class="col-auto">
@@ -43,8 +43,8 @@
                         <div class="text-uppercase fw-bold small mb-1">Active Courses</div>
                         <div class="h4 mb-0">{{ total_courses }}</div>
                         <div class="small text-dark">
-                            <i class="bi bi-arrow-up me-1"></i>
-                            <span class="fw-bold">3%</span> from last month
+                            <i class="bi bi-book me-1"></i>
+                            <span class="fw-bold">Available courses</span>
                         </div>
                     </div>
                     <div class="col-auto">
@@ -63,8 +63,8 @@
                         <div class="text-uppercase fw-bold small mb-1">Total Payments</div>
                         <div class="h4 mb-0">₱{{ "{:,.2f}".format(total_payments) }}</div>
                         <div class="small text-dark">
-                            <i class="bi bi-arrow-up me-1"></i>
-                            <span class="fw-bold">8%</span> from last month
+                            <i class="bi bi-cash me-1"></i>
+                            <span class="fw-bold">Total collected</span>
                         </div>
                     </div>
                     <div class="col-auto">
@@ -83,8 +83,8 @@
                         <div class="text-uppercase fw-bold small mb-1">Active Cashiers</div>
                         <div class="h4 mb-0">{{ total_active_cashiers }}</div>
                         <div class="small text-dark">
-                            <i class="bi bi-dash me-1"></i>
-                            <span class="fw-bold">0%</span> from last month
+                            <i class="bi bi-person-check me-1"></i>
+                            <span class="fw-bold">System users</span>
                         </div>
                     </div>
                     <div class="col-auto">
@@ -109,19 +109,19 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <a href="{{ url_for('admin.add_student') }}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column justify-content-center">
+                        <a href="{{ url_for('admin.students') }}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column justify-content-center">
                             <i class="bi bi-person-plus display-6 mb-2"></i>
                             <span>Add New Student</span>
                         </a>
                     </div>
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <a href="{{ url_for('admin.add_course') }}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column justify-content-center">
+                        <a href="{{ url_for('admin.courses') }}" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column justify-content-center">
                             <i class="bi bi-book-half display-6 mb-2"></i>
                             <span>Add New Course</span>
                         </a>
                     </div>
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <a href="{{ url_for('admin.add_cashier') }}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column justify-content-center">
+                        <a href="{{ url_for('admin.cashiers') }}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column justify-content-center">
                             <i class="bi bi-person-badge display-6 mb-2"></i>
                             <span>Manage Cashiers</span>
                         </a>
@@ -142,13 +142,15 @@
 <div class="row mb-4">
     <div class="col-lg-8 mb-4">
         <div class="card h-100">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     <i class="bi bi-activity me-2"></i>
                     Recent Activities
                 </h5>
+                <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-primary">View All</a>
             </div>
             <div class="card-body">
+                {% if recent_activities %}
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -156,37 +158,39 @@
                                 <th>Time</th>
                                 <th>Activity</th>
                                 <th>User</th>
-                                <th>Status</th>
+                                <th>Type</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for activity in recent_activities or [
-                                {'time': '10:30 AM', 'activity': 'Payment received from John Doe', 'user': 'Cashier 1', 'status': 'success'},
-                                {'time': '10:15 AM', 'activity': 'New student registered: Jane Smith', 'user': 'Admin', 'status': 'info'},
-                                {'time': '09:45 AM', 'activity': 'Course updated: Web Development', 'user': 'Admin', 'status': 'warning'},
-                                {'time': '09:30 AM', 'activity': 'Payment received from Mike Johnson', 'user': 'Cashier 2', 'status': 'success'},
-                                {'time': '09:15 AM', 'activity': 'Cashier login: Sarah Wilson', 'user': 'Cashier 3', 'status': 'info'}
-                            ] %}
+                            {% for activity in recent_activities %}
                             <tr>
-                                <td>{{ activity.time }}</td>
-                                <td>{{ activity.activity }}</td>
-                                <td>{{ activity.user }}</td>
                                 <td>
-                                    <span class="badge bg-{{ activity.status }}">
-                                        {% if activity.status == 'success' %}
-                                            <i class="bi bi-check-circle me-1"></i>Completed
-                                        {% elif activity.status == 'info' %}
-                                            <i class="bi bi-info-circle me-1"></i>Info
-                                        {% elif activity.status == 'warning' %}
-                                            <i class="bi bi-exclamation-triangle me-1"></i>Updated
-                                        {% endif %}
+                                    <small>{{ activity.created_at.strftime('%m/%d %I:%M %p') if activity.created_at else 'N/A' }}</small>
+                                </td>
+                                <td>{{ activity.action }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'primary' if activity.role == 'admin' else 'secondary' }}">
+                                        {{ activity.user_name }}
                                     </span>
+                                </td>
+                                <td>
+                                    {% if activity.table_name %}
+                                        <small class="text-muted">{{ activity.table_name }}</small>
+                                    {% else %}
+                                        <small class="text-muted">system</small>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-clock-history display-4 mb-3"></i>
+                    <p>No recent activities found.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -200,33 +204,34 @@
                 </h5>
             </div>
             <div class="card-body">
+                {% if total_students > 0 %}
                 <div class="mb-3">
                     <div class="d-flex justify-content-between mb-2">
                         <span>Fully Paid</span>
-                        <span class="fw-bold">{{ 120 }} students</span>
+                        <span class="fw-bold">{{ fully_paid }} students</span>
                     </div>
                     <div class="progress mb-3">
-                        <div class="progress-bar bg-success" style="width: {{  77 }}%"></div>
+                        <div class="progress-bar bg-success" style="width: {{ fully_paid_percent }}%"></div>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <div class="d-flex justify-content-between mb-2">
                         <span>Partially Paid</span>
-                        <span class="fw-bold">{{  28 }} students</span>
+                        <span class="fw-bold">{{ partially_paid }} students</span>
                     </div>
                     <div class="progress mb-3">
-                        <div class="progress-bar bg-warning" style="width: {{ 18 }}%"></div>
+                        <div class="progress-bar bg-warning" style="width: {{ partially_paid_percent }}%"></div>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <div class="d-flex justify-content-between mb-2">
                         <span>Unpaid</span>
-                        <span class="fw-bold">{{  8 }} students</span>
+                        <span class="fw-bold">{{ unpaid }} students</span>
                     </div>
                     <div class="progress mb-3">
-                        <div class="progress-bar bg-danger" style="width: {{ 5 }}%"></div>
+                        <div class="progress-bar bg-danger" style="width: {{ unpaid_percent }}%"></div>
                     </div>
                 </div>
 
@@ -236,6 +241,101 @@
                         View All Students
                     </a>
                 </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-people display-4 mb-3"></i>
+                    <p>No students enrolled yet.</p>
+                    <a href="{{ url_for('admin.students') }}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-person-plus me-1"></i>
+                        Add First Student
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Payments & Top Courses -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-cash-stack me-2"></i>
+                    Recent Payments
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_payments %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Student</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Collected By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in recent_payments %}
+                            <tr>
+                                <td>
+                                    <small>{{ payment.payment_date.strftime('%m/%d/%Y') if payment.payment_date else 'N/A' }}</small>
+                                </td>
+                                <td>{{ payment.student_name }}</td>
+                                <td>
+                                    <span class="fw-bold text-success">₱{{ "{:,.2f}".format(payment.amount_paid) }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ payment.payment_method.replace('_', ' ').title() }}</span>
+                                </td>
+                                <td>{{ payment.cashier_name }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-cash-coin display-4 mb-3"></i>
+                    <p>No payments recorded yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-trophy me-2"></i>
+                    Top Courses
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if top_courses %}
+                {% for course in top_courses %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <div class="fw-bold">{{ course.course_name }}</div>
+                        <small class="text-muted">{{ course.course_code }}</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-primary">{{ course.enrolled_count }} students</span>
+                    </div>
+                </div>
+                {% if not loop.last %}<hr class="my-2">{% endif %}
+                {% endfor %}
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-book display-4 mb-3"></i>
+                    <p>No course enrollments yet.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -263,15 +363,40 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Prepare monthly revenue data
+    const monthlyData = {{ monthly_revenue_data | tojson }};
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Create arrays for the last 12 months
+    const currentDate = new Date();
+    const chartLabels = [];
+    const chartData = [];
+
+    for (let i = 11; i >= 0; i--) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        const monthLabel = months[date.getMonth()];
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+
+        chartLabels.push(monthLabel);
+
+        // Find revenue for this month/year
+        const monthRevenue = monthlyData.find(item =>
+            item.year === year && item.month === month
+        );
+
+        chartData.push(monthRevenue ? parseFloat(monthRevenue.monthly_total) : 0);
+    }
+
     // Revenue Chart
     const ctx = document.getElementById('revenueChart').getContext('2d');
     const revenueChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            labels: chartLabels,
             datasets: [{
                 label: 'Monthly Revenue (₱)',
-                data: [180000, 195000, 220000, 210000, 240000, 235000, 260000, 275000, 290000, 285000, 310000, 325000],
+                data: chartData,
                 borderColor: '#B2DFDB',
                 backgroundColor: 'rgba(178, 223, 219, 0.1)',
                 borderWidth: 3,

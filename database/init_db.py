@@ -1,7 +1,6 @@
 import pymysql
 from config import Config
 
-
 def create_database():
     connection = pymysql.connect(
         host=Config.MYSQL_HOST,
@@ -115,7 +114,7 @@ def create_tables():
                     email VARCHAR(100) NOT NULL,
                     otp VARCHAR(6) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TIMESTAMP NOT NULL,
+                    expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL 15 MINUTE),
                     is_used BOOLEAN DEFAULT FALSE
                 )
             ''')
