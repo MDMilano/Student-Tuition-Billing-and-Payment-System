@@ -54,7 +54,8 @@ def login():
             return redirect(url_for('index'))
 
         login_user(user)
-        log_activity(user.id, f"User logged in: {user.email}")
+        # Simple login log with role
+        log_activity(user.id, f"User login: {user.email}", role=user.role)
 
         if user.role == 'admin':
             return redirect(url_for('admin.dashboard'))
@@ -68,7 +69,8 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
-    log_activity(current_user.id, f"User logged out: {current_user.email}")
+    # Simple logout log with role
+    log_activity(current_user.id, f"User logout: {current_user.email}", role=current_user.role)
     logout_user()
     flash('You have been logged out successfully.', 'success')
     return redirect(url_for('index'))

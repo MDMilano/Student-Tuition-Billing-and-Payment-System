@@ -14,12 +14,55 @@
     </button>
 </div>
 
+<!-- Statistics Cards-->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-people-fill display-4 mb-2 text-primary"></i>
+                <h4 class="mb-0">{{ statistics.active_students or 0 }}</h4>
+                <small>Active Students</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card-secondary h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-cash-coin display-4 mb-2 text-success"></i>
+                <h4 class="mb-0">₱{{ "{:,.2f}".format(statistics.total_collected or 0) }}</h4>
+                <small>Total Collected</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-exclamation-triangle-fill display-4 mb-2 text-warning"></i>
+                <h4 class="mb-0">₱{{ "{:,.2f}".format(statistics.outstanding_balance or 0) }}</h4>
+                <small>Outstanding Balance</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card-secondary h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-graph-up display-4 mb-2 text-info"></i>
+                <h4 class="mb-0">{{ "{:.1f}%".format(statistics.collection_rate or 0) }}</h4>
+                <small>Collection Rate</small>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Search and Filter -->
 <div class="card mb-4">
     <div class="card-body">
         <form method="GET" action="{{ url_for('admin.students') }}">
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="search" class="form-label">Search Students</label>
                     <div class="input-group">
                         <input type="text" class="form-control" id="search" name="search"
@@ -30,7 +73,15 @@
                         </button>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label for="student_status_filter" class="form-label">Student Status</label>
+                    <select class="form-select" id="student_status_filter" name="student_status_filter">
+                        <option value="active" {% if request.args.get('student_status_filter', 'active') == 'active' %}selected{% endif %}>Active Only</option>
+                        <option value="inactive" {% if request.args.get('student_status_filter') == 'inactive' %}selected{% endif %}>Inactive Only</option>
+                        <option value="all" {% if request.args.get('student_status_filter') == 'all' %}selected{% endif %}>All Students</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label for="course_filter" class="form-label">Filter by Course</label>
                     <select class="form-select" id="course_filter" name="course_filter">
                         <option value="">All Courses</option>
@@ -43,12 +94,12 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="status_filter" class="form-label">Payment Status</label>
-                    <select class="form-select" id="status_filter" name="status_filter">
+                    <label for="payment_status_filter" class="form-label">Payment Status</label>
+                    <select class="form-select" id="payment_status_filter" name="payment_status_filter">
                         <option value="">All Status</option>
-                        <option value="paid" {% if request.args.get('status_filter') == 'paid' %}selected{% endif %}>Fully Paid</option>
-                        <option value="partial" {% if request.args.get('status_filter') == 'partial' %}selected{% endif %}>Partially Paid</option>
-                        <option value="unpaid" {% if request.args.get('status_filter') == 'unpaid' %}selected{% endif %}>Unpaid</option>
+                        <option value="paid" {% if request.args.get('payment_status_filter') == 'paid' %}selected{% endif %}>Fully Paid</option>
+                        <option value="partial" {% if request.args.get('payment_status_filter') == 'partial' %}selected{% endif %}>Partially Paid</option>
+                        <option value="unpaid" {% if request.args.get('payment_status_filter') == 'unpaid' %}selected{% endif %}>Unpaid</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -70,16 +121,15 @@
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
                 <i class="bi bi-people me-2"></i>
-                Students List ({{ students|length }} students)
+                Students List
+                {% if request.args.get('student_status_filter', 'active') == 'active' %}
+                    ({{ students|length }} active students)
+                {% elif request.args.get('student_status_filter') == 'inactive' %}
+                    ({{ students|length }} inactive students)
+                {% else %}
+                    ({{ students|length }} students)
+                {% endif %}
             </h5>
-            <div class="btn-group" role="group">
-                <a href="{{ url_for('admin.export_students') }}" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-download me-1"></i>Export
-                </a>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
-                    <i class="bi bi-printer me-1"></i>Print
-                </button>
-            </div>
         </div>
     </div>
     <div class="card-body">
@@ -95,13 +145,14 @@
                         <th>Total Fee</th>
                         <th>Paid Amount</th>
                         <th>Balance</th>
-                        <th>Status</th>
+                        <th>Payment Status</th>
+                        <th>Student Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for student in students %}
-                    <tr>
+                    <tr class="{% if not student.is_active %}table-secondary{% endif %}">
                         <td><strong>{{ student.student_id }}</strong></td>
                         <td>{{ student.first_name }} {{ student.last_name }}</td>
                         <td>{{ student.email }}</td>
@@ -115,7 +166,7 @@
                                 <span class="badge bg-success">
                                     <i class="bi bi-check-circle me-1"></i>Fully Paid
                                 </span>
-                            {% elif student.total_paid and student.total_paid > 0 %}
+                            {% elif student.total_paid and student.total_paid > 0%}
                                 <span class="badge bg-warning">
                                     <i class="bi bi-exclamation-triangle me-1"></i>Partially Paid
                                 </span>
@@ -126,12 +177,18 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if student.is_active %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i>Active
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-pause-circle me-1"></i>Inactive
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
                             <div class="btn-group" role="group">
-                                <a href="{{ url_for('admin.view_student', student_id=student.id) }}"
-                                   class="btn btn-sm btn-outline-primary"
-                                   data-bs-toggle="tooltip" title="View Details">
-                                    <i class="bi bi-eye"></i>
-                                </a>
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
                                         onclick="editStudent({{ student.id }})"
                                         data-bs-toggle="tooltip" title="Edit Student">
@@ -235,7 +292,9 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="studentId" class="form-label">Student ID *</label>
-                            <input type="text" class="form-control" id="studentId" name="student_id" required>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="studentId" name="student_id" required readonly>
+                            </div>
                             <div class="form-text">Format: STU-YYYY-###</div>
                         </div>
                         <div class="col-md-6">
@@ -358,6 +417,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set today's date as default for enrollment date
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('enrollmentDate').value = today;
+
+    // Auto-generate Student ID when modal is shown
+    const addStudentModal = document.getElementById('addStudentModal');
+    addStudentModal.addEventListener('shown.bs.modal', () => {
+        generateStudentId();
+    });
 });
 
 function editStudent(studentId) {
@@ -434,6 +499,22 @@ function activateStudent(studentId) {
             alert('Error activating student');
         });
     }
+}
+
+function generateStudentId() {
+    fetch('/admin/student/generate-id')
+        .then(response => response.json())
+        .then(data => {
+            if (data.student_id) {
+                document.getElementById('studentId').value = data.student_id;
+            } else {
+                alert('Failed to generate student ID.');
+            }
+        })
+        .catch(error => {
+            console.error('Error generating student ID:', error);
+            alert('An error occurred while generating student ID.');
+        });
 }
 </script>
 {% endblock %}

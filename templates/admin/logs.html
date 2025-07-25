@@ -13,18 +13,6 @@
     </button>
 </div>
 
-<!-- Flash Messages -->
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
-
 <!-- Log Statistics -->
 <div class="row mb-4">
     <div class="col-md-3">
@@ -65,41 +53,6 @@
     </div>
 </div>
 
-<!-- Search and Filter -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label for="searchLogs" class="form-label">Search Logs</label>
-                <div class="input-group">
-                    <input type="text" class="form-control" id="searchLogs"
-                           placeholder="Search by user or action">
-                    <button class="btn btn-outline-secondary" type="button">
-                        <i class="bi bi-search"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <label for="filterDate" class="form-label">Date Filter</label>
-                <select class="form-select" id="filterDate">
-                    <option value="">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">&nbsp;</label>
-                <div class="d-grid">
-                    <button type="button" class="btn btn-secondary" onclick="applyFilters()">
-                        <i class="bi bi-funnel me-1"></i>Filter
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Logs Table -->
 <div class="card">
     <div class="card-header">
@@ -120,14 +73,13 @@
                         <th>Date & Time</th>
                         <th>User</th>
                         <th>Action</th>
-                        <th>Table</th>
-                        <th>Record ID</th>
+                        <th>Role</th>
                         <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for log in logs %}
-                    <tr class="log-row" data-date="{{ log.created_at.strftime('%Y-%m-%d') if log.created_at else '' }}">
+                    <tr>
                         <td>
                             <small class="text-muted">
                                 {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}
@@ -139,18 +91,23 @@
                             <small class="text-muted">ID: {{ log.user_id }}</small>
                         </td>
                         <td>
-                            <span class="badge bg-primary">{{ log.action }}</span>
-                        </td>
-                        <td>
-                            {% if log.table_name %}
-                                <span class="badge bg-secondary">{{ log.table_name }}</span>
+                            {% if 'login' in log.action.lower() %}
+                                <span class="badge bg-success">{{ log.action }}</span>
+                            {% elif 'logout' in log.action.lower() %}
+                                <span class="badge bg-danger">{{ log.action }}</span>
                             {% else %}
-                                <span class="text-muted">-</span>
+                                <span class="badge bg-primary">{{ log.action }}</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if log.record_id %}
-                                <code>#{{ log.record_id }}</code>
+                            {% if log.role %}
+                                {% if log.role == 'admin' %}
+                                    <span class="badge bg-warning text-dark">Admin</span>
+                                {% elif log.role == 'cashier' %}
+                                    <span class="badge bg-info">Cashier</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ log.role|title }}</span>
+                                {% endif %}
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
@@ -244,18 +201,6 @@
                         <label class="form-label fw-bold">Action</label>
                         <p id="detailAction" class="form-control-plaintext"></p>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label fw-bold">Table Affected</label>
-                        <p id="detailTable" class="form-control-plaintext"></p>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label fw-bold">Record ID</label>
-                        <p id="detailRecord" class="form-control-plaintext"></p>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label fw-bold">User Agent</label>
-                        <p id="detailUserAgent" class="form-control-plaintext"></p>
-                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -274,41 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
     tooltipTriggerList.forEach(function (tooltipTriggerEl) {
         new bootstrap.Tooltip(tooltipTriggerEl);
     });
-
-    // Search functionality
-    document.getElementById('searchLogs').addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        const rows = document.querySelectorAll('.log-row');
-
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(searchTerm) ? '' : 'none';
-        });
-    });
 });
-
-function applyFilters() {
-    const dateFilter = document.getElementById('filterDate').value;
-    const rows = document.querySelectorAll('.log-row');
-    const today = new Date().toISOString().split('T')[0];
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    rows.forEach(row => {
-        let show = true;
-        const rowDate = row.getAttribute('data-date');
-
-        if (dateFilter === 'today' && rowDate !== today) {
-            show = false;
-        } else if (dateFilter === 'week' && rowDate < weekAgo) {
-            show = false;
-        } else if (dateFilter === 'month' && rowDate < monthAgo) {
-            show = false;
-        }
-
-        row.style.display = show ? '' : 'none';
-    });
-}
 
 function showLogDetails(logId) {
     // Make AJAX request to get log details
@@ -318,9 +229,6 @@ function showLogDetails(logId) {
             document.getElementById('detailTimestamp').textContent = data.created_at || 'N/A';
             document.getElementById('detailUser').textContent = data.user_name || 'System';
             document.getElementById('detailAction').textContent = data.action || 'N/A';
-            document.getElementById('detailTable').textContent = data.table_name || 'N/A';
-            document.getElementById('detailRecord').textContent = data.record_id || 'N/A';
-            document.getElementById('detailUserAgent').textContent = data.user_agent || 'N/A';
 
             const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
             modal.show();

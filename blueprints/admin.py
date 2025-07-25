@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from functools import wraps
 from models.user import User
-from models.log import Log, ImportantActivityLogger
+from models.log import Log
 from utils.helpers import log_activity, admin_required
 import pymysql
 from config import Config
@@ -12,7 +12,6 @@ import pymysql
 from config import Config
 import csv
 from io import StringIO
-from datetime import datetime
 import re
 from datetime import datetime, timedelta
 
@@ -46,8 +45,7 @@ def dashboard():
 
             # 5. Recent activities from logs
             cursor.execute("""
-                SELECT l.action, l.created_at, u.name as user_name, u.role,
-                       l.table_name, l.record_id
+                SELECT l.action, l.created_at, u.name as user_name, u.role as role
                 FROM logs l
                 JOIN users u ON l.user_id = u.id
                 ORDER BY l.created_at DESC
@@ -164,9 +162,17 @@ def students():
             cursor.execute("SELECT id, name, price FROM courses WHERE is_active = TRUE ORDER BY name")
             courses = cursor.fetchall()
 
-            # Build query with filters
-            where_conditions = ["s.is_active = TRUE"]
+            # Build query with filters - Remove the is_active filter to show all students
+            where_conditions = []
             params = []
+
+            # Status filter (active/inactive students)
+            status_filter = request.args.get('student_status_filter', 'active').strip()
+            if status_filter == 'active':
+                where_conditions.append("s.is_active = TRUE")
+            elif status_filter == 'inactive':
+                where_conditions.append("s.is_active = FALSE")
+            # 'all' shows both active and inactive
 
             # Search functionality
             search = request.args.get('search', '').strip()
@@ -186,10 +192,11 @@ def students():
                 params.append(course_filter)
 
             # Payment status filter
-            status_filter = request.args.get('status_filter', '').strip()
+            payment_status_filter = request.args.get('payment_status_filter', '').strip()
 
             # Base query with JOINs
-            base_query = """
+            where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+            base_query = f"""
                 SELECT 
                     s.id,
                     s.student_id,
@@ -207,19 +214,19 @@ def students():
                 FROM students s
                 LEFT JOIN courses c ON s.course_id = c.id
                 LEFT JOIN payments p ON s.id = p.student_id
-                WHERE {}
+                {where_clause}
                 GROUP BY s.id, s.student_id, s.first_name, s.last_name, s.email, 
                          s.phone, s.address, s.course_id, s.enrollment_date, s.is_active,
                          c.name, c.price
-            """.format(" AND ".join(where_conditions))
+            """
 
             # Add payment status filter after getting the data
-            if status_filter:
-                if status_filter == 'paid':
+            if payment_status_filter:
+                if payment_status_filter == 'paid':
                     base_query += " HAVING (c.price - COALESCE(SUM(p.amount_paid), 0)) = 0 AND c.price > 0"
-                elif status_filter == 'partial':
+                elif payment_status_filter == 'partial':
                     base_query += " HAVING COALESCE(SUM(p.amount_paid), 0) > 0 AND (c.price - COALESCE(SUM(p.amount_paid), 0)) > 0"
-                elif status_filter == 'unpaid':
+                elif payment_status_filter == 'unpaid':
                     base_query += " HAVING COALESCE(SUM(p.amount_paid), 0) = 0"
 
             # Add ordering
@@ -243,6 +250,29 @@ def students():
             paginated_query = f"{base_query} LIMIT %s OFFSET %s"
             cursor.execute(paginated_query, params + [per_page, offset])
             students = cursor.fetchall()
+
+            # Get statistics
+            stats_query = """
+                SELECT 
+                    COUNT(CASE WHEN s.is_active = TRUE THEN 1 END) as active_students,
+                    COUNT(CASE WHEN s.is_active = FALSE THEN 1 END) as inactive_students,
+                    COUNT(*) as total_students,
+                    COALESCE(SUM(CASE WHEN s.is_active = TRUE THEN c.price END), 0) as total_fees,
+                    COALESCE(SUM(CASE WHEN s.is_active = TRUE THEN p.total_paid END), 0) as total_collected
+                FROM students s
+                LEFT JOIN courses c ON s.course_id = c.id
+                LEFT JOIN (
+                    SELECT student_id, SUM(amount_paid) as total_paid
+                    FROM payments
+                    GROUP BY student_id
+                ) p ON s.id = p.student_id
+            """
+            cursor.execute(stats_query)
+            statistics = cursor.fetchone()
+
+            # Calculate additional stats
+            outstanding_balance = statistics['total_fees'] - statistics['total_collected']
+            collection_rate = (statistics['total_collected'] / statistics['total_fees'] * 100) if statistics['total_fees'] > 0 else 0
 
             # Calculate pagination info
             total_pages = (total_students + per_page - 1) // per_page
@@ -275,11 +305,20 @@ def students():
             return render_template('admin/manage_students.html',
                                    students=students,
                                    courses=courses,
-                                   pagination=pagination)
+                                   pagination=pagination,
+                                   statistics={
+                                       'active_students': statistics['active_students'],
+                                       'inactive_students': statistics['inactive_students'],
+                                       'total_students': statistics['total_students'],
+                                       'total_fees': statistics['total_fees'],
+                                       'total_collected': statistics['total_collected'],
+                                       'outstanding_balance': outstanding_balance,
+                                       'collection_rate': collection_rate
+                                   })
 
     except Exception as e:
         flash(f'Error loading students: {str(e)}', 'error')
-        return render_template('admin/manage_students.html', students=[], courses=[])
+        return render_template('admin/manage_students.html', students=[], courses=[], statistics={})
     finally:
         connection.close()
 
@@ -288,7 +327,7 @@ def students():
 @login_required
 @admin_required
 def add_student():
-    """Add new student with important activity logging"""
+    """Add new student"""
     try:
         connection = User.get_db_connection()
         with connection.cursor() as cursor:
@@ -302,14 +341,25 @@ def add_student():
             # Check if student ID already exists
             cursor.execute("SELECT id FROM students WHERE student_id = %s", (request.form['student_id'],))
             if cursor.fetchone():
-                # Log security event for duplicate attempt
-                ImportantActivityLogger.log_security_event(
-                    user_id=current_user.id,
-                    event_type='duplicate_entry_attempt',
-                    description=f"Attempted to create student with existing ID: {request.form['student_id']}",
-                    severity='WARNING'
-                )
                 flash('Student ID already exists', 'error')
+                return redirect(url_for('admin.students'))
+
+            # Check if email already exists
+            cursor.execute("SELECT id FROM students WHERE email = %s", (request.form['email'],))
+            if cursor.fetchone():
+                flash('Email already exists', 'error')
+                return redirect(url_for('admin.students'))
+
+            # Validate email format
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, request.form['email']):
+                flash('Invalid email format', 'error')
+                return redirect(url_for('admin.students'))
+
+            # Verify course exists
+            cursor.execute("SELECT id FROM courses WHERE id = %s AND is_active = TRUE", (request.form['course_id'],))
+            if not cursor.fetchone():
+                flash('Invalid course selected', 'error')
                 return redirect(url_for('admin.students'))
 
             # Insert new student
@@ -330,34 +380,9 @@ def add_student():
             ))
 
             connection.commit()
-            student_db_id = cursor.lastrowid
-
-            # Log important student addition
-            student_data = {
-                'student_id': request.form['student_id'],
-                'first_name': request.form['first_name'],
-                'last_name': request.form['last_name'],
-                'email': request.form['email'],
-                'course_id': request.form['course_id']
-            }
-
-            ImportantActivityLogger.log_student_activity(
-                user_id=current_user.id,
-                action='add',
-                student_data=student_data,
-                student_id=student_db_id
-            )
-
             flash('Student added successfully!', 'success')
 
     except Exception as e:
-        # Log error for failed student creation
-        ImportantActivityLogger.log_security_event(
-            user_id=current_user.id,
-            event_type='system_error',
-            description=f"Failed to create student: {str(e)}",
-            severity='ERROR'
-        )
         flash(f'Error adding student: {str(e)}', 'error')
     finally:
         connection.close()
@@ -514,132 +539,6 @@ def activate_student(student_id):
     finally:
         connection.close()
 
-
-@admin_bp.route('/student/<int:student_id>')
-@login_required
-@admin_required
-def view_student(student_id):
-    """View student details"""
-    try:
-        connection = User.get_db_connection()
-        with connection.cursor() as cursor:
-            # Get student details with course info
-            cursor.execute("""
-                SELECT 
-                    s.id, s.student_id, s.first_name, s.last_name, s.email, s.phone,
-                    s.address, s.enrollment_date, s.is_active, s.created_at,
-                    c.name as course_name, c.price as course_price,
-                    COALESCE(SUM(p.amount_paid), 0) as total_paid
-                FROM students s
-                LEFT JOIN courses c ON s.course_id = c.id
-                LEFT JOIN payments p ON s.id = p.student_id
-                WHERE s.id = %s
-                GROUP BY s.id, s.student_id, s.first_name, s.last_name, s.email, 
-                         s.phone, s.address, s.enrollment_date, s.is_active, s.created_at,
-                         c.name, c.price
-            """, (student_id,))
-
-            student = cursor.fetchone()
-            if not student:
-                flash('Student not found', 'error')
-                return redirect(url_for('admin.students'))
-
-            # Get payment history
-            cursor.execute("""
-                SELECT p.id, p.amount_paid, p.payment_method, p.reference_number,
-                       p.payment_date, p.notes, u.name as collected_by_name
-                FROM payments p
-                JOIN users u ON p.collected_by = u.id
-                WHERE p.student_id = %s
-                ORDER BY p.payment_date DESC, p.created_at DESC
-            """, (student_id,))
-
-            payments = cursor.fetchall()
-
-            return render_template('admin/view_student.html', student=student, payments=payments)
-
-    except Exception as e:
-        flash(f'Error loading student: {str(e)}', 'error')
-        return redirect(url_for('admin.students'))
-    finally:
-        connection.close()
-
-
-@admin_bp.route('/students/export')
-@login_required
-@admin_required
-def export_students():
-    """Export students to CSV"""
-    try:
-        connection = User.get_db_connection()
-        with connection.cursor() as cursor:
-            # Get all students with course and payment info
-            cursor.execute("""
-                SELECT 
-                    s.student_id, s.first_name, s.last_name, s.email, s.phone,
-                    s.address, s.enrollment_date, 
-                    c.name as course_name, c.price as course_price,
-                    COALESCE(SUM(p.amount_paid), 0) as total_paid,
-                    (c.price - COALESCE(SUM(p.amount_paid), 0)) as balance,
-                    CASE 
-                        WHEN COALESCE(SUM(p.amount_paid), 0) = 0 THEN 'Unpaid'
-                        WHEN (c.price - COALESCE(SUM(p.amount_paid), 0)) = 0 THEN 'Fully Paid'
-                        ELSE 'Partially Paid'
-                    END as payment_status
-                FROM students s
-                LEFT JOIN courses c ON s.course_id = c.id
-                LEFT JOIN payments p ON s.id = p.student_id
-                WHERE s.is_active = TRUE
-                GROUP BY s.id, s.student_id, s.first_name, s.last_name, s.email, 
-                         s.phone, s.address, s.enrollment_date, c.name, c.price
-                ORDER BY s.student_id
-            """)
-
-            students = cursor.fetchall()
-
-            # Create CSV
-            output = StringIO()
-            writer = csv.writer(output)
-
-            # Write header
-            writer.writerow([
-                'Student ID', 'First Name', 'Last Name', 'Email', 'Phone',
-                'Address', 'Enrollment Date', 'Course', 'Course Price',
-                'Total Paid', 'Balance', 'Payment Status'
-            ])
-
-            # Write data
-            for student in students:
-                writer.writerow([
-                    student['student_id'],
-                    student['first_name'],
-                    student['last_name'],
-                    student['email'],
-                    student['phone'] or '',
-                    student['address'] or '',
-                    student['enrollment_date'].strftime('%Y-%m-%d') if student['enrollment_date'] else '',
-                    student['course_name'] or '',
-                    f"₱{student['course_price']:,.2f}" if student['course_price'] else '₱0.00',
-                    f"₱{student['total_paid']:,.2f}",
-                    f"₱{student['balance']:,.2f}" if student['balance'] else '₱0.00',
-                    student['payment_status']
-                ])
-
-            # Create response
-            response = make_response(output.getvalue())
-            response.headers['Content-Type'] = 'text/csv'
-            response.headers[
-                'Content-Disposition'] = f'attachment; filename=students_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-
-            return response
-
-    except Exception as e:
-        flash(f'Error exporting students: {str(e)}', 'error')
-        return redirect(url_for('admin.students'))
-    finally:
-        connection.close()
-
-
 # Helper function to generate next student ID
 def generate_student_id():
     """Generate next student ID in format STU-YYYY-###"""
@@ -664,7 +563,7 @@ def generate_student_id():
             else:
                 next_number = 1
 
-            return f'STU-{current_year}-{next_number:03d}'
+            return f'STU-{current_year}-{next_number:05d}'
 
     except Exception:
         # Fallback to basic format
@@ -1068,14 +967,14 @@ from flask import request, jsonify
 @admin_required
 def logs(page=1):
     """Display system logs with pagination"""
-    per_page = 20  # Number of logs per page
+    per_page = 20
 
     # Get logs with pagination
     logs_data = Log.get_paginated_logs(page, per_page)
     logs = logs_data['logs']
     pagination = logs_data['pagination']
 
-    # Calculate statistics
+    # Get statistics
     stats = Log.get_log_statistics()
 
     return render_template('admin/logs.html',
@@ -1099,11 +998,9 @@ def log_details(log_id):
     return jsonify({
         'id': log.id,
         'created_at': log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else None,
-        'user_name': log.user_name,
+        'user_name': log.user_name or 'System',
         'action': log.action,
-        'table_name': log.table_name,
-        'record_id': log.record_id,
-        'user_agent': log.user_agent
+        'role': log.role or 'Unknown'
     })
 
 
@@ -1114,73 +1011,186 @@ def clear_old_logs():
     """Clear logs older than 90 days"""
     try:
         deleted_count = Log.clear_old_logs(days=90)
-        log_activity(current_user.id, f"Cleared {deleted_count} old log entries", 'logs')
-
         return jsonify({
             'success': True,
             'message': f'Successfully cleared {deleted_count} old log entries'
         })
     except Exception as e:
-        print(f"Error clearing logs: {e}")
         return jsonify({
             'success': False,
             'message': 'Error clearing old logs'
         }), 500
 
+
+# Replace the profile-related code at the bottom of your admin_bp with this:
+
 @admin_bp.route('/profile')
 @login_required
 @admin_required
 def profile():
+    """Display admin profile page"""
     try:
-        connection = mysql.connection
-        cursor = connection.cursor()
+        connection = User.get_db_connection()
+        with connection.cursor() as cursor:
+            # Get current user data
+            cursor.execute("SELECT * FROM users WHERE id = %s", (current_user.id,))
+            current_user_data = cursor.fetchone()
 
-        # Fetch current user’s profile (admin)
-        cursor.execute("SELECT id, name, email, role, is_active, created_at, updated_at FROM users WHERE id = %s", (current_user.id,))
-        user = cursor.fetchone()
+            if not current_user_data:
+                flash('User not found', 'error')
+                return redirect(url_for('admin.dashboard'))
 
-        if user:
-            profile = {
-                "user_id": f"ADM-{user[0]:04d}",
-                "full_name": user[1],
-                "first_name": user[1].split()[0] if ' ' in user[1] else user[1],
-                "last_name": user[1].split()[-1] if ' ' in user[1] else '',
-                "email": user[2],
-                "position": "System Administrator",
-                "is_active": user[4],
-                "created_date": user[5].strftime('%B %d, %Y'),
-                "last_updated": user[6].strftime('%B %d, %Y'),
-                "last_login": session.get("last_login", "Today, 10:00 AM"),
-                "avatar_url": None,  # Add this if you store avatar uploads
-                "phone": "+63 912 345 6789",  # You can add phone and address columns to users table
-                "address": "Manila, Philippines",
-                "bio": "Committed to streamlining school operations through technology.",
-                "date_of_birth": "1995-07-15",  # Add this to DB if needed
+            # Get system stats for the sidebar
+            cursor.execute("SELECT COUNT(*) as count FROM students WHERE is_active = TRUE")
+            total_students = cursor.fetchone()['count']
+
+            cursor.execute("SELECT COUNT(*) as count FROM courses WHERE is_active = TRUE")
+            total_courses = cursor.fetchone()['count']
+
+            cursor.execute("SELECT COUNT(*) as count FROM users WHERE is_active = TRUE")
+            total_users = cursor.fetchone()['count']
+
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM payments 
+                WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            """)
+            recent_payments = cursor.fetchone()['count']
+
+            cursor.execute("SELECT COUNT(*) as count FROM logs")
+            total_logs = cursor.fetchone()['count']
+
+            stats = {
+                'total_students': total_students,
+                'total_courses': total_courses,
+                'total_users': total_users,
+                'recent_payments': recent_payments,
+                'total_logs': total_logs
             }
-        else:
-            profile = {}
 
-        # For activity stats
-        activity = {}
-
-        # Count students added
-        cursor.execute("SELECT COUNT(*) FROM students")
-        activity["students_added"] = cursor.fetchone()[0]
-
-        # Count courses created
-        cursor.execute("SELECT COUNT(*) FROM courses")
-        activity["courses_created"] = cursor.fetchone()[0]
-
-        # Count cashiers managed (users with role='cashier')
-        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'cashier'")
-        activity["cashiers_managed"] = cursor.fetchone()[0]
-
-        # Count login sessions (just an example — update if you have login logs)
-        cursor.execute("SELECT COUNT(*) FROM logs WHERE user_id = %s", (current_user.id,))
-        activity["login_sessions"] = cursor.fetchone()[0]
-
-        return render_template("admin/profile.html", profile=profile, activity=activity)
+            return render_template('admin/profile.html',
+                                   current_user=current_user_data,
+                                   stats=stats)
 
     except Exception as e:
-        print("Error fetching profile:", e)
-        return render_template("admin/profile.html", profile={}, activity={})
+        flash(f'Error loading profile: {str(e)}', 'error')
+        return redirect(url_for('admin.dashboard'))
+    finally:
+        connection.close()
+
+
+@admin_bp.route('/profile/update', methods=['POST'])
+@login_required
+@admin_required
+def update_profile():
+    """Update admin profile"""
+    try:
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+
+        if not name or not email:
+            flash('Name and email are required', 'error')
+            return redirect(url_for('admin.profile'))
+
+        # Validate email format
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            flash('Please enter a valid email address', 'error')
+            return redirect(url_for('admin.profile'))
+
+        connection = User.get_db_connection()
+        try:
+            with connection.cursor() as cursor:
+                # Check if email is already taken by another user
+                cursor.execute("""
+                    SELECT id FROM users WHERE email = %s AND id != %s
+                """, (email, current_user.id))
+
+                if cursor.fetchone():
+                    flash('Email is already taken by another user', 'error')
+                    return redirect(url_for('admin.profile'))
+
+                # Update user profile
+                cursor.execute("""
+                    UPDATE users 
+                    SET name = %s, email = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (name, email, current_user.id))
+
+                connection.commit()
+
+                # Log the action
+                log_activity(current_user.id, f'Updated profile information', 'users', current_user.id)
+
+                flash('Profile updated successfully!', 'success')
+
+        finally:
+            connection.close()
+
+    except Exception as e:
+        flash(f'Error updating profile: {str(e)}', 'error')
+
+    return redirect(url_for('admin.profile'))
+
+
+@admin_bp.route('/profile/change-password', methods=['POST'])
+@login_required
+@admin_required
+def change_password():
+    """Change user password"""
+    try:
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        if not all([current_password, new_password, confirm_password]):
+            flash('All password fields are required', 'error')
+            return redirect(url_for('admin.profile'))
+
+        if new_password != confirm_password:
+            flash('New passwords do not match', 'error')
+            return redirect(url_for('admin.profile'))
+
+        if len(new_password) < 8:
+            flash('Password must be at least 8 characters long', 'error')
+            return redirect(url_for('admin.profile'))
+
+        connection = User.get_db_connection()
+        try:
+            with connection.cursor() as cursor:
+                # Get current user
+                cursor.execute("SELECT password_hash FROM users WHERE id = %s", (current_user.id,))
+                user = cursor.fetchone()
+
+                if not user:
+                    flash('User not found', 'error')
+                    return redirect(url_for('admin.profile'))
+
+                # Verify current password (you'll need to import werkzeug.security)
+                from werkzeug.security import check_password_hash, generate_password_hash
+
+                if not check_password_hash(user['password_hash'], current_password):
+                    flash('Current password is incorrect', 'error')
+                    return redirect(url_for('admin.profile'))
+
+                # Update password
+                new_password_hash = generate_password_hash(new_password)
+                cursor.execute("""
+                    UPDATE users 
+                    SET password_hash = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (new_password_hash, current_user.id))
+
+                connection.commit()
+
+                # Log the action
+                log_activity(current_user.id, 'Changed password', 'users', current_user.id)
+
+                flash('Password changed successfully!', 'success')
+
+        finally:
+            connection.close()
+
+    except Exception as e:
+        flash(f'Error changing password: {str(e)}', 'error')
+
+    return redirect(url_for('admin.profile'))

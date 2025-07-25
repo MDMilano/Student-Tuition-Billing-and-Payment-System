@@ -156,9 +156,9 @@
                         <thead>
                             <tr>
                                 <th>Time</th>
-                                <th>Activity</th>
                                 <th>User</th>
-                                <th>Type</th>
+                                <th>Activity</th>
+                                <th>Role</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -167,17 +167,23 @@
                                 <td>
                                     <small>{{ activity.created_at.strftime('%m/%d %I:%M %p') if activity.created_at else 'N/A' }}</small>
                                 </td>
-                                <td>{{ activity.action }}</td>
                                 <td>
                                     <span class="badge bg-{{ 'primary' if activity.role == 'admin' else 'secondary' }}">
                                         {{ activity.user_name }}
                                     </span>
                                 </td>
+                                <td>{{ activity.action }}</td>
                                 <td>
-                                    {% if activity.table_name %}
-                                        <small class="text-muted">{{ activity.table_name }}</small>
+                                    {% if activity.role %}
+                                        {% if activity.role == 'admin' %}
+                                            <span class="badge bg-warning text-dark">Admin</span>
+                                        {% elif activity.role == 'cashier' %}
+                                            <span class="badge bg-info">Cashier</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ activity.role|title }}</span>
+                                        {% endif %}
                                     {% else %}
-                                        <small class="text-muted">system</small>
+                                        <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                             </tr>

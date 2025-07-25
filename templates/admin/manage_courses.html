@@ -57,8 +57,8 @@
 <!-- Search and Filter -->
 <div class="card mb-4">
     <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-6">
+        <div class="g-3">
+            <div class="col-md-full">
                 <label for="searchCourse" class="form-label">Search Courses</label>
                 <div class="input-group">
                     <input type="text" class="form-control" id="searchCourse" placeholder="Search by course name or code">
@@ -67,74 +67,70 @@
                     </button>
                 </div>
             </div>
-            <div class="col-md-3">
-                <label for="sortBy" class="form-label">Sort By</label>
-                <select class="form-select" id="sortBy">
-                    <option value="name">Course Name</option>
-                    <option value="code">Course Code</option>
-                    <option value="price">Course Price</option>
-                    <option value="date">Created Date</option>
-                </select>
-            </div>
         </div>
     </div>
 </div>
 
 <!-- Courses Grid -->
-<div class="row">
+<div class="row g-4">
     {% for course in courses %}
     <div class="col-lg-6 col-xl-4 mb-4">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-start">
-                <div>
-                    <h6 class="mb-1">{{ course.code }}</h6>
-                    <span class="badge bg-success">Active</span>
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center py-3">
+                <div class="d-flex align-items-center gap-3">
+                    <h6 class="mb-0 fw-bold text-dark">{{ course.code }}</h6>
+                    <span class="badge bg-success px-3 py-2 rounded-pill">Active</span>
                 </div>
                 <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm rounded-circle d-flex align-items-center justify-content-center"
+                            type="button" data-bs-toggle="dropdown" style="width: 32px; height: 32px;">
                         <i class="bi bi-three-dots-vertical"></i>
                     </button>
-                    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
                         <li>
-                            <a class="dropdown-item" href="#" onclick="editCourse({{ course.id }})">
+                            <a class="dropdown-item py-2" href="#" onclick="editCourse({{ course.id }})">
                                 <i class="bi bi-pencil me-2"></i>Edit Course
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
-                            <a class="dropdown-item text-danger" href="#" onclick="deleteCourse({{ course.id }})">
+                            <a class="dropdown-item text-danger py-2" href="#" onclick="deleteCourse({{ course.id }})">
                                 <i class="bi bi-trash me-2"></i>Delete Course
                             </a>
                         </li>
                     </ul>
                 </div>
             </div>
-            <div class="card-body">
-                <h5 class="card-title">{{ course.name }}</h5>
-                <p class="card-text text-muted small">{{ course.description or 'No description available' }}</p>
 
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-currency-dollar text-success me-2"></i>
-                            <span class="fw-bold">₱{{ "{:,.2f}".format(course.price) }}</span>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-calendar text-info me-2"></i>
-                            <span>{{ course.created_at.strftime('%Y-%m-%d') if course.created_at else 'N/A' }}</span>
+            <div class="card-body py-4">
+                <h5 class="card-title mb-3 fw-bold">{{ course.name }}</h5>
+                <p class="card-text text-muted mb-4" style="line-height: 1.6;">
+                    {{ course.description or 'No description available' }}
+                </p>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-coin text-success me-2 fs-5"></i>
+                                <span class="fw-bold fs-5">₱{{ "{:,.2f}".format(course.price) }}</span>
+                            </div>
+                            <div class="d-flex align-items-center text-muted">
+                                <i class="bi bi-calendar me-2"></i>
+                                <small>{{ course.created_at.strftime('%Y-%m-%d') if course.created_at else 'N/A' }}</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="card-footer bg-transparent">
-                <div class="btn-group w-100" role="group">
-                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="viewStudents({{ course.id }})">
-                        <i class="bi bi-people me-1"></i>Students
+
+            <div class="card-footer bg-white border-0 pt-0 pb-3">
+                <div class="d-grid gap-2 d-md-flex">
+                    <button type="button" class="btn btn-primary flex-fill" onclick="viewStudents({{ course.id }})">
+                        <i class="bi bi-people me-2"></i>Students
                     </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="editCourse({{ course.id }})">
-                        <i class="bi bi-pencil me-1"></i>Edit
+                    <button type="button" class="btn btn-outline-secondary flex-fill" onclick="editCourse({{ course.id }})">
+                        <i class="bi bi-pencil me-2"></i>Edit
                     </button>
                 </div>
             </div>

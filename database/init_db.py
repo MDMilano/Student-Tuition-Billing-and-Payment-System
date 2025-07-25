@@ -99,9 +99,7 @@ def create_tables():
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     user_id INT NOT NULL,
                     action VARCHAR(255) NOT NULL,
-                    table_name VARCHAR(50),
-                    record_id INT,
-                    user_agent TEXT,
+                    role TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )

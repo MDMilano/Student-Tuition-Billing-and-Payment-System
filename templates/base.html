@@ -193,6 +193,46 @@
             .sidebar-overlay.show {
                 display: block;
             }
+
+            .alert {
+                position: relative;
+                overflow: hidden;
+            }
+
+            .alert-timer-bar {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                height: 3px;
+                background-color: rgba(255, 255, 255, 0.8);
+                width: 100%;
+                animation: timer-countdown 5s linear forwards;
+            }
+
+            .alert-success .alert-timer-bar {
+                background-color: rgba(255, 255, 255, 0.9);
+            }
+
+            .alert-danger .alert-timer-bar {
+                background-color: rgba(255, 255, 255, 0.9);
+            }
+
+            .alert-warning .alert-timer-bar {
+                background-color: rgba(0, 0, 0, 0.3);
+            }
+
+            .alert-info .alert-timer-bar {
+                background-color: rgba(255, 255, 255, 0.9);
+            }
+
+            @keyframes timer-countdown {
+                from {
+                    width: 100%;
+                }
+                to {
+                    width: 0%;
+                }
+            }
         }
     </style>
 </head>
@@ -303,9 +343,10 @@
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         {% for category, message in messages %}
-                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert" id="alert-{{ loop.index0 if loop else 'message' }}">
                                 {{ message }}
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                <div class="alert-timer-bar"></div>
                             </div>
                         {% endfor %}
                     {% endif %}
@@ -345,6 +386,21 @@
                 if (link.getAttribute('href') === currentPath) {
                     link.classList.add('active');
                 }
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-dismiss alerts after 5 seconds
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    // Check if alert still exists and hasn't been manually dismissed
+                    if (alert.parentNode && alert.classList.contains('show')) {
+                        // Use Bootstrap's alert dismiss method
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }
+                }, 3000);
             });
         });
     </script>
