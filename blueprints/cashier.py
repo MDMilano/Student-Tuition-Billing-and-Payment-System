@@ -5,7 +5,7 @@ from models.user import User
 import pymysql
 from config import Config
 from datetime import date
-from database.db import get_db_connection
+from database.init_db import get_db_connection
 from flask import send_file
 import io
 import pandas as pd
@@ -195,40 +195,48 @@ def students():
     status_filter = request.args.get('status', '')
     search_query = request.args.get('search', '')
 
-    #     connection = User.get_db_connection()
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             # Base query
-            # query = '''
-            #     SELECT
-            #         s.*,
-            #         c.name as course_name,
-            #         c.price as total_fee,
-            #         COALESCE(SUM(p.amount_paid), 0) as amount_paid,
-            #         (c.price - COALESCE(SUM(p.amount_paid), 0)) as balance
-            #     FROM students s
-            #     JOIN courses c ON s.course_id = c.id
-            #     LEFT JOIN payments p ON s.id = p.student_id
-            #     WHERE s.is_active = TRUE
-            # '''
             query = '''
+                SELECT 
+                    s.*,
+                    c.name AS course_name,
+                    c.price AS total_fee,
+                    sb.total_due,
+                    sb.total_paid,
+                    sb.balance,
+                    sb.status,
+                    COALESCE(SUM(p.amount_paid), 0) AS amount_paid,
+                    (COALESCE(sb.total_due, 0) - COALESCE(SUM(p.amount_paid), 0)) AS adjusted_balance,
+                    latest_payment.latest_payment_date,
+                    latest_payment.latest_payment_amount
+                FROM students s
+                LEFT JOIN courses c ON s.course_id = c.id
+                LEFT JOIN student_balances sb ON sb.student_id = s.id
+                LEFT JOIN payments p ON s.id = p.student_id
+                LEFT JOIN (
                     SELECT 
-                        s.*,
-                        c.name AS course_name,
-                        c.price AS total_fee,
-                        sb.total_due,
-                        sb.total_paid,
-                        sb.balance,
-                        sb.status,
-                        COALESCE(SUM(p.amount_paid), 0) AS amount_paid,
-                        (COALESCE(sb.total_due, 0) - COALESCE(SUM(p.amount_paid), 0)) AS adjusted_balance
-                    FROM students s
-                    LEFT JOIN courses c ON s.course_id = c.id
-                    LEFT JOIN student_balances sb ON sb.student_id = s.id
-                    LEFT JOIN payments p ON s.id = p.student_id
-                    WHERE s.is_active = TRUE
-                '''
+                        p.student_id, 
+                        p.amount_paid AS latest_payment_amount, 
+                        p.created_at AS latest_payment_date
+                    FROM 
+                        payments p
+                    INNER JOIN (
+                        SELECT 
+                            student_id, 
+                            MAX(created_at) AS max_date
+                        FROM 
+                            payments
+                        GROUP BY 
+                            student_id
+                    ) AS latest ON p.student_id = latest.student_id AND p.created_at = latest.max_date
+                ) AS latest_payment ON latest_payment.student_id = s.id
+                WHERE s.is_active = TRUE
+                GROUP BY 
+                    s.id, c.name, c.price, sb.total_due, sb.total_paid, sb.balance, sb.status, latest_payment.latest_payment_date, latest_payment.latest_payment_amount
+            '''
 
             params = []
 
@@ -242,32 +250,21 @@ def students():
                 query += " AND c.id = %s"
                 params.append(course_filter)
 
-            query += " GROUP BY s.id, c.price"
-
+            # Add HAVING clause based on status filter
             if status_filter:
+                query += " HAVING "
                 if status_filter == 'paid':
-                    query += " HAVING amount_paid >= c.price"
+                    query += "amount_paid >= c.price"
                 elif status_filter == 'partial':
-                    query += " HAVING amount_paid > 0 AND amount_paid < c.price"
+                    query += "amount_paid > 0 AND amount_paid < c.price"
                 elif status_filter == 'unpaid':
-                    query += " HAVING amount_paid = 0"
+                    query += "amount_paid = 0"
 
+            # Final ORDER BY clause
             query += " ORDER BY s.created_at DESC"
 
             cursor.execute(query, params)
             students = cursor.fetchall()
-
-            # Add status to each student
-            # for student in students:
-            #     if student['amount_paid'] >= student['total_fee']:
-            #         student['status'] = 'Paid'
-            #         student['status_class'] = 'success'
-            #     elif student['amount_paid'] > 0:
-            #         student['status'] = 'Partial'
-            #         student['status_class'] = 'warning'
-            #     else:
-            #         student['status'] = 'Unpaid'
-            #         student['status_class'] = 'danger'
 
             # Process students data
             for student in students:
@@ -294,20 +291,19 @@ def students():
 
             # Get summary counts
             cursor.execute('''
-                            SELECT 
-                                SUM(CASE WHEN sb.status = 'paid' THEN 1 ELSE 0 END) as fully_paid,
-                                SUM(CASE WHEN sb.status = 'partial' THEN 1 ELSE 0 END) as partially_paid,
-                                SUM(CASE WHEN sb.status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
-                                COUNT(DISTINCT s.id) as total_students
-                            FROM students s
-                            LEFT JOIN student_balances sb ON s.id = sb.student_id
-                            WHERE s.is_active = TRUE
-                        ''')
+                SELECT 
+                    SUM(CASE WHEN sb.status = 'paid' THEN 1 ELSE 0 END) as fully_paid,
+                    SUM(CASE WHEN sb.status = 'partial' THEN 1 ELSE 0 END) as partially_paid,
+                    SUM(CASE WHEN sb.status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
+                    COUNT(DISTINCT s.id) as total_students
+                FROM students s
+                LEFT JOIN student_balances sb ON s.id = sb.student_id
+                WHERE s.is_active = TRUE
+            ''')
             summary = cursor.fetchone()
 
     finally:
         connection.close()
-        print("Students:", students)
 
     return render_template('cashier/students.html',
                            students=students,
@@ -317,6 +313,8 @@ def students():
                            search_query=search_query,
                            summary=summary,
                            total_students=len(students))
+
+
 
 
 @cashier_bp.route('/view-collect-payment', methods=['GET', 'POST'])
@@ -329,9 +327,18 @@ def view_collect_payment():
         with connection.cursor() as cursor:
             # Get the 5 most recently added students (ordered by ID or a timestamp column)
             cursor.execute('''
-                    SELECT id, first_name || ' ' || last_name AS name, balance
-                    FROM students
-                    ORDER BY id DESC
+                    SELECT 
+                        s.id, 
+                        s.student_id AS sid, 
+                        CONCAT(s.first_name, ' ', s.last_name) AS name,
+                        c.name AS course,
+                        sb.total_due AS totalFee,
+                        sb.total_paid AS paidAmount,
+                        sb.balance
+                    FROM students s
+                    LEFT JOIN courses c ON s.course_id = c.id
+                    LEFT JOIN student_balances sb ON sb.student_id = s.id
+                    ORDER BY s.id DESC
                     LIMIT 5
                 ''')
             recent_students = cursor.fetchall()
@@ -370,10 +377,12 @@ def api_search_student():
             ''', (f'%{query}%', f'%{query}%'))
 
             student = cursor.fetchone()
+            print(student)
 
             if student:
                 return jsonify({
-                    'id': student['student_id'],
+                    'id': student['id'],
+                    'sid': student['student_id'],
                     'name': student['name'],
                     'course': student['course'],
                     'totalFee': float(student['total_due'] or 0),
@@ -390,7 +399,6 @@ def api_search_student():
 @login_required
 @cashier_required
 def collect_payment(student_id):
-#     connection = User.get_db_connection()
     connection = get_db_connection()
 
     if request.method == 'POST':
@@ -417,21 +425,29 @@ def collect_payment(student_id):
             with connection.cursor() as cursor:
                 # Insert payment record
                 cursor.execute('''
-                                    INSERT INTO payments (student_id, billing_id, amount_paid, payment_method, reference_number, payment_date, collected_by, notes)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                                ''', (
-                student_id, billing_id if billing_id else None, amount, method, reference, date.today(),
-                current_user.id, notes))
+                    INSERT INTO payments (student_id, billing_id, amount_paid, payment_method, reference_number, payment_date, collected_by, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (
+                    student_id, billing_id if billing_id else None, amount, method, reference, date.today(),
+                    current_user.id, notes))
 
                 payment_id = cursor.lastrowid
 
-                # Update student balance if billing_id provided
-                if billing_id:
+                # Update total_paid in student_balances if billing_id provided
+                if student_id:
                     cursor.execute('''
-                                        UPDATE student_balances 
-                                        SET total_paid = total_paid + %s
-                                        WHERE id = %s
-                                    ''', (amount, billing_id))
+                        UPDATE student_balances 
+                        SET total_paid = total_paid + %s
+                        WHERE student_id = %s
+                    ''', (amount, student_id))
+
+                    # Optionally, you can also update the balance if needed, but since you mentioned it is auto-computed, this may not be necessary.
+                    # If balance is computed in the database, you can skip this step.
+                    # cursor.execute('''
+                    #     UPDATE student_balances
+                    #     SET balance = total_due - total_paid
+                    #     WHERE id = %s
+                    # ''', (billing_id,))
 
                 # Get student info for logging
                 cursor.execute("SELECT first_name, last_name, student_id FROM students WHERE id = %s", (student_id,))
@@ -455,22 +471,22 @@ def collect_payment(student_id):
         with connection.cursor() as cursor:
             # Get student info with balances
             cursor.execute('''
-                            SELECT 
-                                s.*,
-                                c.name as course_name,
-                                sb.id as billing_id,
-                                sb.total_due,
-                                sb.total_paid,
-                                sb.balance,
-                                sb.status,
-                                sb.semester,
-                                sb.from_year,
-                                sb.to_year
-                            FROM students s
-                            LEFT JOIN courses c ON s.course_id = c.id
-                            LEFT JOIN student_balances sb ON s.id = sb.student_id
-                            WHERE s.id = %s AND s.is_active = TRUE
-                        ''', (student_id,))
+                SELECT 
+                    s.*,
+                    c.name as course_name,
+                    sb.id as billing_id,
+                    sb.total_due,
+                    sb.total_paid,
+                    sb.balance,
+                    sb.status,
+                    sb.semester,
+                    sb.from_year,
+                    sb.to_year
+                FROM students s
+                LEFT JOIN courses c ON s.course_id = c.id
+                LEFT JOIN student_balances sb ON s.id = sb.student_id
+                WHERE s.id = %s AND s.is_active = TRUE
+            ''', (student_id,))
 
             student_data = cursor.fetchall()
             if not student_data:
@@ -480,8 +496,6 @@ def collect_payment(student_id):
             # Group by student and collect all billing records
             student = student_data[0]
             student['billings'] = []
-
-            # student['balance'] = student['total_fee'] - student['amount_paid']
 
             for row in student_data:
                 if row['billing_id']:
@@ -497,8 +511,9 @@ def collect_payment(student_id):
                     })
     finally:
         connection.close()
-    print(student)
+
     return render_template('cashier/collect_payment.html', student=student)
+
 
 
 @cashier_bp.route('/payment-history/<int:student_id>')

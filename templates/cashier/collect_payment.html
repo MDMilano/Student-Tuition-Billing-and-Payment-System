@@ -61,12 +61,20 @@
                     <h6 class="mb-3">Recent Students</h6>
                     <div class="list-group">
                         {% for student in recent_students or [
-                            {'id': 'STU-2024-003', 'name': 'Mike Johnson', 'balance': 28000.00},
-                            {'id': 'STU-2024-002', 'name': 'Jane Smith', 'balance': 15000.00},
-                            {'id': 'STU-2024-005', 'name': 'David Brown', 'balance': 15000.00}
+                            {'sid': 'STU-2024-003', 'name': 'Mike Johnson', 'balance': 28000.00},
+                            {'sid': 'STU-2024-002', 'name': 'Jane Smith', 'balance': 15000.00},
+                            {'sid': 'STU-2024-005', 'name': 'David Brown', 'balance': 15000.00}
                         ] %}
                         <button type="button" class="list-group-item list-group-item-action"
-                                onclick="selectStudent('{{ student.id }}', '{{ student.name }}', {{ student.balance }})">
+                                onclick='selectStudent(
+                                    {{ student.id | tojson }},
+                                    {{ student.sid | tojson }},
+                                    {{ student.name | tojson }},
+                                    {{ student.course | tojson if student.course is defined else '"— —"' }},
+                                    {{ student.totalFee | default(0.00) }},
+                                    {{ student.paidAmount | default(0.00) }},
+                                    {{ student.balance | default(0.00) }}
+                                )'>
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">{{ student.name }}</h6>
                                 <small class="text-danger">₱{{ "{:,.2f}".format(student.balance) }}</small>
@@ -98,7 +106,6 @@
                             <p class="mb-1"><strong>Name:</strong> <span id="studentName">-</span></p>
                             <p class="mb-1"><strong>ID:</strong> <span id="studentId">-</span></p>
                             <p class="mb-1"><strong>Course:</strong> <span id="studentCourse">-</span></p>
-                            <p class="mb-1"><strong>Course:</strong> <span id="s">-</span></p>
                         </div>
                         <div class="col-md-6">
                             <h6>Payment Summary</h6>
@@ -110,13 +117,15 @@
                 </div>
 
                 <!-- Payment Form -->
-                {# <form id="paymentForm" action="{{ url_for('cashier.collect_payment') }}" method="POST"> #}
+<!--                {# <form id="paymentForm" action="{{ url_for('cashier.collect_payment') }}" method="POST"> #}-->
                 <form id="paymentForm" action="#" method="POST">
                     <input type="hidden" id="selectedStudentId" name="student_id" value="">
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="paymentAmount" class="form-label">Payment Amount <span class="text-danger">*</span></label>
+                            <!-- ✅ Hidden input to store selected student ID -->
+                            <input type="hidden" id="studId" name="student_id">
                             <div class="input-group">
                                 <span class="input-group-text">₱</span>
                                 <input type="number" class="form-control" id="paymentAmount" name="amount"
@@ -132,10 +141,6 @@
                                 <option value="cash">Cash</option>
                                 <option value="bank_transfer">Bank Transfer</option>
                                 <option value="gcash">GCash</option>
-                                <option value="paymaya">PayMaya</option>
-                                <option value="credit_card">Credit Card</option>
-                                <option value="debit_card">Debit Card</option>
-                                <option value="check">Check</option>
                             </select>
                         </div>
                     </div>
@@ -325,7 +330,7 @@ function searchStudent() {
         return;
     }
 
-    fetch(`/api/search-student?query=${encodeURIComponent(searchTerm)}`)
+    fetch(`/cashier/api/search-student?query=${encodeURIComponent(searchTerm)}`)
         .then(response => response.json())
         .then(data => {
             if (data.error) {
@@ -338,7 +343,7 @@ function searchStudent() {
                 return;
             }
 
-            selectStudent(data.id, data.name, data.balance, data.course, data.totalFee, data.paidAmount);
+            selectStudent(data.id, data.sid, data.name, data.course, data.totalFee, data.paidAmount, data.balance);
 
             document.getElementById('studentResults').innerHTML = `
                 <div class="alert alert-success">
@@ -358,9 +363,10 @@ function searchStudent() {
 }
 
 
-function selectStudent(id, name, balance, course = 'Web Development', totalFee = 25000.00, paidAmount = 0.00) {
+function selectStudent(id, sid, name, course = '— —', totalFee = 0.00, paidAmount = 0.00, balance = 0.00) {
     selectedStudentData = {
         id: id,
+        sid: sid,
         name: name,
         course: course,
         totalFee: totalFee,
@@ -368,18 +374,21 @@ function selectStudent(id, name, balance, course = 'Web Development', totalFee =
         balance: balance
     };
 
+    console.log("Selected Student Data:", { id, sid, name, course, totalFee, paidAmount, balance });
     // Update hidden field
-    document.getElementById('selectedStudentId').value = id;
+    document.getElementById('selectedStudentId').value = sid;
 
     // Show student info
     document.getElementById('studentInfo').classList.remove('d-none');
     document.getElementById('studentName').textContent = name;
-    document.getElementById('studentId').textContent = id;
+    document.getElementById('studentId').textContent = sid;
     document.getElementById('studentCourse').textContent = course;
     document.getElementById('totalFee').textContent = totalFee.toLocaleString('en-US', {minimumFractionDigits: 2});
     document.getElementById('paidAmount').textContent = paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2});
     document.getElementById('remainingBalance').textContent = balance.toLocaleString('en-US', {minimumFractionDigits: 2});
 
+
+    document.getElementById('studId').value = id;
     // Enable form
     document.getElementById('paymentAmount').disabled = false;
     document.getElementById('paymentMethod').disabled = false;
@@ -500,5 +509,19 @@ function resetForm() {
         updatePaymentSummary();
     }
 }
+
+document.getElementById('paymentForm').addEventListener('submit', function (e) {
+    const studentId = document.getElementById('studId').value;
+
+    if (!studentId) {
+        e.preventDefault();
+        alert('Please select a student before submitting the form.');
+        return;
+    }
+
+    // Set form action dynamically
+    this.action = `/cashier/collect-payment/${studentId}`;
+});
+
 </script>
 {% endblock %}

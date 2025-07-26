@@ -5,7 +5,7 @@ from utils.helpers import generate_otp, log_activity
 import pymysql
 from config import Config
 from datetime import datetime, timedelta
-from database.db import get_db_connection
+from database.init_db import get_db_connection
 
 
 auth_bp = Blueprint('auth', __name__)

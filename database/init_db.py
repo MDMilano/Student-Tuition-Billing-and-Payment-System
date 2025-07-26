@@ -164,11 +164,7 @@ def create_tables(port):
                     email VARCHAR(100) NOT NULL,
                     otp VARCHAR(6) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-<<<<<<< HEAD:database/db.py
-                    expires_at TIMESTAMP NULL,
-=======
                     expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL 15 MINUTE),
->>>>>>> origin/main:database/init_db.py
                     is_used BOOLEAN DEFAULT FALSE
                 )
             ''')

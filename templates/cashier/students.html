@@ -126,7 +126,7 @@
                         <th>Balance</th>
                         <th>Last Payment</th>
                         <th>Status</th>
-                        <th>Actions</th>
+<!--                        <th>Actions</th>-->
                     </tr>
                 </thead>
                 <tbody>
@@ -145,8 +145,8 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if student.last_payment_date %}
-                                {{ student.last_payment_date.strftime('%Y-%m-%d') }}
+                            {% if student.latest_payment_date %}
+                                {{ student.latest_payment_date.strftime('%Y-%m-%d') }}
                             {% else %}
                                 <span class="text-muted">No payment yet</span>
                             {% endif %}
@@ -170,27 +170,27 @@
                                 </span>
                             {% endif %}
                         </td>
-                        <td>
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                        onclick="viewPaymentHistory('{{ student.id }}')"
-                                        data-bs-toggle="tooltip" title="Payment History">
-                                    <i class="bi bi-clock-history"></i>
-                                </button>
-                                {% if student.balance and student.balance > 0 %}
-                                <a href="{{ url_for('cashier.collect_payment', student_id=student.id) }}"
-                                   class="btn btn-sm btn-primary"
-                                   data-bs-toggle="tooltip" title="Collect Payment">
-                                    <i class="bi bi-credit-card"></i>
-                                </a>
-                                {% endif %}
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        onclick="printStudentDetails('{{ student.id }}')"
-                                        data-bs-toggle="tooltip" title="Print Details">
-                                    <i class="bi bi-printer"></i>
-                                </button>
-                            </div>
-                        </td>
+<!--                        <td>-->
+<!--                            <div class="btn-group" role="group">-->
+<!--                                <button type="button" class="btn btn-sm btn-outline-primary"-->
+<!--                                        onclick="viewPaymentHistory('{{ student.id }}')"-->
+<!--                                        data-bs-toggle="tooltip" title="Payment History">-->
+<!--                                    <i class="bi bi-clock-history"></i>-->
+<!--                                </button>-->
+<!--                                {% if student.balance and student.balance > 0 %}-->
+<!--                                <a href="{{ url_for('cashier.collect_payment', student_id=student.id) }}"-->
+<!--                                   class="btn btn-sm btn-primary"-->
+<!--                                   data-bs-toggle="tooltip" title="Collect Payment">-->
+<!--                                    <i class="bi bi-credit-card"></i>-->
+<!--                                </a>-->
+<!--                                {% endif %}-->
+<!--                                <button type="button" class="btn btn-sm btn-outline-secondary"-->
+<!--                                        onclick="printStudentDetails('{{ student.id }}')"-->
+<!--                                        data-bs-toggle="tooltip" title="Print Details">-->
+<!--                                    <i class="bi bi-printer"></i>-->
+<!--                                </button>-->
+<!--                            </div>-->
+<!--                        </td>-->
                     </tr>
                     {% endfor %}
                 </tbody>

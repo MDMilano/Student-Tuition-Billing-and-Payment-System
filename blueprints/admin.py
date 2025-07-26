@@ -954,12 +954,12 @@ def toggle_cashier(cashier_id):
 @admin_bp.route('/cashiers/delete/<int:cashier_id>')
 @login_required
 @admin_required
-def logs():
-    page = request.args.get('page', 1, type=int)
-    per_page = Config.LOGS_PER_PAGE
-
-#     connection = User.get_db_connection()
-    connection = get_db_connection()
+# def logs():
+#     page = request.args.get('page', 1, type=int)
+#     per_page = Config.LOGS_PER_PAGE
+#
+# #     connection = User.get_db_connection()
+#     connection = get_db_connection()
 def delete_cashier(cashier_id):
     """Delete cashier (optional route if you want delete functionality)"""
     try:
