@@ -200,7 +200,7 @@ class User(UserMixin):
     @staticmethod
     def delete(user_id):
         """Delete user (use with caution)"""
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))

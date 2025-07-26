@@ -67,19 +67,23 @@
                         ] %}
                         <button type="button" class="list-group-item list-group-item-action"
                                 onclick='selectStudent(
-                                    {{ student.id | tojson }},
-                                    {{ student.sid | tojson }},
-                                    {{ student.name | tojson }},
-                                    {{ student.course | tojson if student.course is defined else '"— —"' }},
+                                    {% if student.id is not none %}{{ student.id | tojson }}{% else %}null{% endif %},
+                                    {% if student.sid is not none %}{{ student.sid | tojson }}{% else %}null{% endif %},
+                                    {% if student.name is not none %}{{ student.name | tojson }}{% else %}"null"{% endif %},
+                                    {% if student.course is not none %}{{ student.course | tojson }}{% else %}"— —"{% endif %},
                                     {{ student.totalFee | default(0.00) }},
                                     {{ student.paidAmount | default(0.00) }},
                                     {{ student.balance | default(0.00) }}
                                 )'>
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">{{ student.name }}</h6>
-                                <small class="text-danger">₱{{ "{:,.2f}".format(student.balance) }}</small>
+                                <small class="text-danger">
+                                    ₱{% if student.balance is not none %}{{ "{:,.2f}".format(student.balance) }}{% else %}0.00{% endif %}
+                                </small>
                             </div>
-                            <p class="mb-1">{{ student.id }}</p>
+                            <p class="mb-1">
+                                {% if student.id is not none %}{{ student.id }}{% else %}N/A{% endif %}
+                            </p>
                         </button>
                         {% endfor %}
                     </div>
