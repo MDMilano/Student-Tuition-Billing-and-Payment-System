@@ -8,7 +8,7 @@
         <h1 class="h3 mb-0">Collect Payment</h1>
         <p class="text-muted">Process student tuition payments</p>
     </div>
-    <div class="btn-group" role="group">
+    {# <div class="btn-group" role="group">
         <a href="{{ url_for('cashier.students') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-2"></i>
             Back to Students
@@ -17,7 +17,7 @@
             <i class="bi bi-clock-history me-2"></i>
             Payment History
         </a>
-    </div>
+    </div> #}
 </div>
 
 <div class="row">
@@ -35,8 +35,8 @@
                     <div class="mb-3">
                         <label for="studentSearch" class="form-label">Search Student</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="studentSearch" 
-                                   placeholder="Enter student ID or name" 
+                            <input type="text" class="form-control" id="studentSearch"
+                                   placeholder="Enter student ID or name"
                                    value="{{ request.args.get('student_id', '') }}">
                             <button class="btn btn-outline-secondary" type="button" onclick="searchStudent()">
                                 <i class="bi bi-search"></i>
@@ -61,12 +61,20 @@
                     <h6 class="mb-3">Recent Students</h6>
                     <div class="list-group">
                         {% for student in recent_students or [
-                            {'id': 'STU-2024-003', 'name': 'Mike Johnson', 'balance': 28000.00},
-                            {'id': 'STU-2024-002', 'name': 'Jane Smith', 'balance': 15000.00},
-                            {'id': 'STU-2024-005', 'name': 'David Brown', 'balance': 15000.00}
+                            {'sid': 'STU-2024-003', 'name': 'Mike Johnson', 'balance': 28000.00},
+                            {'sid': 'STU-2024-002', 'name': 'Jane Smith', 'balance': 15000.00},
+                            {'sid': 'STU-2024-005', 'name': 'David Brown', 'balance': 15000.00}
                         ] %}
-                        <button type="button" class="list-group-item list-group-item-action" 
-                                onclick="selectStudent('{{ student.id }}', '{{ student.name }}', {{ student.balance }})">
+                        <button type="button" class="list-group-item list-group-item-action"
+                                onclick='selectStudent(
+                                    {{ student.id | tojson }},
+                                    {{ student.sid | tojson }},
+                                    {{ student.name | tojson }},
+                                    {{ student.course | tojson if student.course is defined else '"— —"' }},
+                                    {{ student.totalFee | default(0.00) }},
+                                    {{ student.paidAmount | default(0.00) }},
+                                    {{ student.balance | default(0.00) }}
+                                )'>
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">{{ student.name }}</h6>
                                 <small class="text-danger">₱{{ "{:,.2f}".format(student.balance) }}</small>
@@ -109,15 +117,18 @@
                 </div>
 
                 <!-- Payment Form -->
-                <form id="paymentForm" action="{{ url_for('cashier.collect_payment') }}" method="POST">
+<!--                {# <form id="paymentForm" action="{{ url_for('cashier.collect_payment') }}" method="POST"> #}-->
+                <form id="paymentForm" action="#" method="POST">
                     <input type="hidden" id="selectedStudentId" name="student_id" value="">
-                    
+
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="paymentAmount" class="form-label">Payment Amount <span class="text-danger">*</span></label>
+                            <!-- ✅ Hidden input to store selected student ID -->
+                            <input type="hidden" id="studId" name="student_id">
                             <div class="input-group">
                                 <span class="input-group-text">₱</span>
-                                <input type="number" class="form-control" id="paymentAmount" name="amount" 
+                                <input type="number" class="form-control" id="paymentAmount" name="amount"
                                        step="0.01" min="0" max="999999" required>
                             </div>
                             <div class="form-text">Enter the amount to be paid</div>
@@ -130,10 +141,6 @@
                                 <option value="cash">Cash</option>
                                 <option value="bank_transfer">Bank Transfer</option>
                                 <option value="gcash">GCash</option>
-                                <option value="paymaya">PayMaya</option>
-                                <option value="credit_card">Credit Card</option>
-                                <option value="debit_card">Debit Card</option>
-                                <option value="check">Check</option>
                             </select>
                         </div>
                     </div>
@@ -185,7 +192,7 @@
 
                     <div class="mb-3">
                         <label for="paymentNotes" class="form-label">Notes (Optional)</label>
-                        <textarea class="form-control" id="paymentNotes" name="notes" rows="3" 
+                        <textarea class="form-control" id="paymentNotes" name="notes" rows="3"
                                   placeholder="Additional notes about this payment"></textarea>
                     </div>
 
@@ -303,10 +310,10 @@ let selectedStudentData = null;
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize payment method change handler
     document.getElementById('paymentMethod').addEventListener('change', handlePaymentMethodChange);
-    
+
     // Initialize amount input handler
     document.getElementById('paymentAmount').addEventListener('input', updatePaymentSummary);
-    
+
     // Auto-select student if provided in URL
     const urlParams = new URLSearchParams(window.location.search);
     const studentId = urlParams.get('student_id');
@@ -323,39 +330,43 @@ function searchStudent() {
         return;
     }
 
-    // Simulate student search (replace with actual API call)
-    const mockStudents = [
-        {id: 'STU-2024-001', name: 'John Doe', course: 'Web Development', totalFee: 25000.00, paidAmount: 12500.00, balance: 12500.00},
-        {id: 'STU-2024-002', name: 'Jane Smith', course: 'Mobile Development', totalFee: 28000.00, paidAmount: 13000.00, balance: 15000.00},
-        {id: 'STU-2024-003', name: 'Mike Johnson', course: 'Data Science', totalFee: 30000.00, paidAmount: 2000.00, balance: 28000.00}
-    ];
+    fetch(`/cashier/api/search-student?query=${encodeURIComponent(searchTerm)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('studentResults').innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        ${data.error}
+                    </div>
+                `;
+                return;
+            }
 
-    const student = mockStudents.find(s => 
-        s.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        s.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+            selectStudent(data.id, data.sid, data.name, data.course, data.totalFee, data.paidAmount, data.balance);
 
-    if (student) {
-        selectStudent(student.id, student.name, student.balance, student.course, student.totalFee, student.paidAmount);
-        document.getElementById('studentResults').innerHTML = `
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle me-2"></i>
-                Student found: <strong>${student.name}</strong>
-            </div>
-        `;
-    } else {
-        document.getElementById('studentResults').innerHTML = `
-            <div class="alert alert-warning">
-                <i class="bi bi-exclamation-triangle me-2"></i>
-                No student found with "${searchTerm}". Please check the ID or name.
-            </div>
-        `;
-    }
+            document.getElementById('studentResults').innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Student found: <strong>${data.name}</strong>
+                </div>
+            `;
+        })
+        .catch(err => {
+            document.getElementById('studentResults').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle me-2"></i>
+                    Error fetching student: ${err.message}
+                </div>
+            `;
+        });
 }
 
-function selectStudent(id, name, balance, course = 'Web Development', totalFee = 25000.00, paidAmount = 0.00) {
+
+function selectStudent(id, sid, name, course = '— —', totalFee = 0.00, paidAmount = 0.00, balance = 0.00) {
     selectedStudentData = {
         id: id,
+        sid: sid,
         name: name,
         course: course,
         totalFee: totalFee,
@@ -363,18 +374,21 @@ function selectStudent(id, name, balance, course = 'Web Development', totalFee =
         balance: balance
     };
 
+    console.log("Selected Student Data:", { id, sid, name, course, totalFee, paidAmount, balance });
     // Update hidden field
-    document.getElementById('selectedStudentId').value = id;
+    document.getElementById('selectedStudentId').value = sid;
 
     // Show student info
     document.getElementById('studentInfo').classList.remove('d-none');
     document.getElementById('studentName').textContent = name;
-    document.getElementById('studentId').textContent = id;
+    document.getElementById('studentId').textContent = sid;
     document.getElementById('studentCourse').textContent = course;
     document.getElementById('totalFee').textContent = totalFee.toLocaleString('en-US', {minimumFractionDigits: 2});
     document.getElementById('paidAmount').textContent = paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2});
     document.getElementById('remainingBalance').textContent = balance.toLocaleString('en-US', {minimumFractionDigits: 2});
 
+
+    document.getElementById('studId').value = id;
     // Enable form
     document.getElementById('paymentAmount').disabled = false;
     document.getElementById('paymentMethod').disabled = false;
@@ -386,13 +400,13 @@ function selectStudent(id, name, balance, course = 'Web Development', totalFee =
 function handlePaymentMethodChange() {
     const method = document.getElementById('paymentMethod').value;
     const additionalFields = document.getElementById('additionalFields');
-    
+
     // Hide all additional fields first
     document.querySelectorAll('#additionalFields > div').forEach(div => div.classList.add('d-none'));
-    
+
     if (method) {
         additionalFields.classList.remove('d-none');
-        
+
         switch(method) {
             case 'bank_transfer':
                 document.getElementById('bankTransferFields').classList.remove('d-none');
@@ -410,7 +424,7 @@ function handlePaymentMethodChange() {
     } else {
         additionalFields.classList.add('d-none');
     }
-    
+
     updatePaymentSummary();
 }
 
@@ -431,17 +445,17 @@ function setFullAmount() {
 function updatePaymentSummary() {
     const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
     const method = document.getElementById('paymentMethod').value;
-    
+
     // Update summary fields
     document.getElementById('summaryAmount').textContent = amount.toLocaleString('en-US', {minimumFractionDigits: 2});
     document.getElementById('summaryMethod').textContent = method ? method.replace('_', ' ').toUpperCase() : '-';
-    
+
     if (selectedStudentData) {
         const newBalance = Math.max(0, selectedStudentData.balance - amount);
         document.getElementById('newBalance').textContent = newBalance.toLocaleString('en-US', {minimumFractionDigits: 2});
         document.getElementById('paymentStatus').textContent = newBalance === 0 ? 'Fully Paid' : 'Partial Payment';
     }
-    
+
     // Enable/disable submit button
     const submitBtn = document.getElementById('submitPayment');
     submitBtn.disabled = !(selectedStudentData && amount > 0 && method);
@@ -452,15 +466,15 @@ function previewPayment() {
         alert('Please select a student first.');
         return;
     }
-    
+
     const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
     const method = document.getElementById('paymentMethod').value;
-    
+
     if (amount <= 0 || !method) {
         alert('Please enter a valid amount and select a payment method.');
         return;
     }
-    
+
     // Populate preview modal
     document.getElementById('previewStudentName').textContent = selectedStudentData.name;
     document.getElementById('previewStudentId').textContent = selectedStudentData.id;
@@ -470,7 +484,7 @@ function previewPayment() {
     document.getElementById('previewDate').textContent = new Date().toLocaleDateString();
     document.getElementById('previewCurrentBalance').textContent = selectedStudentData.balance.toLocaleString('en-US', {minimumFractionDigits: 2});
     document.getElementById('previewNewBalance').textContent = Math.max(0, selectedStudentData.balance - amount).toLocaleString('en-US', {minimumFractionDigits: 2});
-    
+
     // Show modal
     new bootstrap.Modal(document.getElementById('paymentPreviewModal')).show();
 }
@@ -478,7 +492,7 @@ function previewPayment() {
 function confirmPayment() {
     // Hide modal
     bootstrap.Modal.getInstance(document.getElementById('paymentPreviewModal')).hide();
-    
+
     // Submit form
     document.getElementById('paymentForm').submit();
 }
@@ -495,5 +509,19 @@ function resetForm() {
         updatePaymentSummary();
     }
 }
+
+document.getElementById('paymentForm').addEventListener('submit', function (e) {
+    const studentId = document.getElementById('studId').value;
+
+    if (!studentId) {
+        e.preventDefault();
+        alert('Please select a student before submitting the form.');
+        return;
+    }
+
+    // Set form action dynamically
+    this.action = `/cashier/collect-payment/${studentId}`;
+});
+
 </script>
 {% endblock %}

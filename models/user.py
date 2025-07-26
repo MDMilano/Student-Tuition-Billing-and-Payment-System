@@ -2,6 +2,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from flask_login import UserMixin
 import pymysql
 from config import Config
+from database.init_db import get_db_connection
 
 
 class User(UserMixin):
@@ -23,20 +24,24 @@ class User(UserMixin):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    @staticmethod
-    def get_db_connection():
-        return pymysql.connect(
-            host=Config.MYSQL_HOST,
-            user=Config.MYSQL_USER,
-            password=Config.MYSQL_PASSWORD,
-            database=Config.MYSQL_DB,
-            cursorclass=pymysql.cursors.DictCursor
-        )
+    '''commented to use the automatic connecting to database with different ports.'''
+    # @staticmethod
+    # def get_db_connection():
+    #     return pymysql.connect(
+    #         host=Config.MYSQL_HOST,
+    #         user=Config.MYSQL_USER,
+    #         password=Config.MYSQL_PASSWORD,
+    #         database=Config.MYSQL_DB,
+    #         cursorclass=pymysql.cursors.DictCursor
+    #     )
 
     @staticmethod
     def get_by_id(user_id):
+        # connection = User.get_db_connection()
+        #for the automated connetion:
+        connection = get_db_connection()
         """Get user by ID - Fixed version"""
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
@@ -52,7 +57,10 @@ class User(UserMixin):
 
     @staticmethod
     def get_by_email(email):
-        connection = User.get_db_connection()
+#         connection = User.get_db_connection()
+#for the automated connetion:
+        connection = get_db_connection()
+
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT * FROM users WHERE email = %s AND is_active = TRUE", (email,))
@@ -66,7 +74,7 @@ class User(UserMixin):
     @staticmethod
     def create(name, email, password, role='cashier'):
         """Create new user with enhanced validation"""
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 # Check if email already exists
@@ -90,7 +98,10 @@ class User(UserMixin):
 
     @staticmethod
     def update_password(email, new_password):
-        connection = User.get_db_connection()
+#         connection = User.get_db_connection()
+#for the automated connetion:
+        connection = get_db_connection()
+
         try:
             with connection.cursor() as cursor:
                 password_hash = generate_password_hash(new_password)
@@ -105,8 +116,11 @@ class User(UserMixin):
 
     @staticmethod
     def get_all_cashiers():
+#         connection = User.get_db_connection()
+#for the automated connetion:
+
         """Get all users with cashier role"""
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT * FROM users WHERE role = 'cashier' ORDER BY created_at DESC")
@@ -126,7 +140,8 @@ class User(UserMixin):
     @staticmethod
     def update_cashier(cashier_id, name, email):
         """Update cashier information"""
-        connection = User.get_db_connection()
+        # connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
@@ -146,8 +161,11 @@ class User(UserMixin):
 
     @staticmethod
     def toggle_active(user_id):
+#         connection = User.get_db_connection()
+#for the automated connetion:
+
         """Toggle user active status"""
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute('''
@@ -166,7 +184,8 @@ class User(UserMixin):
     @staticmethod
     def has_payment_records(user_id):
         """Check if user has any payment records"""
-        connection = User.get_db_connection()
+        # connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT COUNT(*) as count FROM payments WHERE collected_by = %s", (user_id,))

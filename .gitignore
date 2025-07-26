@@ -1,3 +1,12 @@
+<<<<<<< HEAD
 __pycache__/
 *.pyc
 .idea/
+=======
+/.idea
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+>>>>>>> cashier-feature

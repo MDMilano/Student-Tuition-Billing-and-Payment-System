@@ -6,7 +6,7 @@ from config import Config
 from models.user import User
 from blueprints.auth import auth_bp
 from blueprints.admin import admin_bp
-# from blueprints.cashier import cashier_bp
+from blueprints.cashier import cashier_bp
 from utils.helpers import log_activity
 
 app = Flask(__name__)
@@ -26,7 +26,7 @@ def load_user(user_id):
 # Register Blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp, url_prefix='/admin')
-# app.register_blueprint(cashier_bp, url_prefix='/cashier')
+app.register_blueprint(cashier_bp, url_prefix='/cashier')
 
 @app.route('/')
 def index():
@@ -55,6 +55,7 @@ def login():
 
         login_user(user)
         # Simple login log with role
+        session['user_name'] = user.name
         log_activity(user.id, f"User login: {user.email}", role=user.role)
 
         if user.role == 'admin':
@@ -84,4 +85,4 @@ def logout():
 #     return render_template('500.html'), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8000)

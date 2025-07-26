@@ -6,6 +6,7 @@ from models.log import Log
 from utils.helpers import log_activity, admin_required
 import pymysql
 from config import Config
+from database.init_db import get_db_connection
 
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, make_response
 import pymysql
@@ -22,7 +23,8 @@ admin_bp = Blueprint('admin', __name__)
 @login_required
 @admin_required
 def dashboard():
-    connection = User.get_db_connection()
+    # connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             # Get dashboard statistics
@@ -154,9 +156,11 @@ def dashboard():
 @login_required
 @admin_required
 def students():
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     """Main students management page with search, filter, and pagination"""
     try:
-        connection = User.get_db_connection()
+        # connection = User.get_db_connection()
         with connection.cursor() as cursor:
             # Get all active courses for filter dropdown
             cursor.execute("SELECT id, name, price FROM courses WHERE is_active = TRUE ORDER BY name")
@@ -327,9 +331,24 @@ def students():
 @login_required
 @admin_required
 def add_student():
+    student_id = request.form.get('student_id')
+    first_name = request.form.get('first_name')
+    last_name = request.form.get('last_name')
+    email = request.form.get('email')
+    phone = request.form.get('phone')
+    address = request.form.get('address')
+    course_id = request.form.get('course_id')
+    enrollment_date = request.form.get('enrollment_date')
+
+    if not all([student_id, first_name, last_name, email, phone, address, enrollment_date, course_id]):
+        flash('Please fill in all required fields.', 'error')
+        return redirect(url_for('admin.students'))
+
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     """Add new student"""
     try:
-        connection = User.get_db_connection()
+        # connection = User.get_db_connection()
         with connection.cursor() as cursor:
             # Validate required fields
             required_fields = ['student_id', 'first_name', 'last_name', 'email', 'course_id', 'enrollment_date']
@@ -396,7 +415,7 @@ def add_student():
 def get_student_edit_data(student_id):
     """Get student data for editing (AJAX endpoint)"""
     try:
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT id, student_id, first_name, last_name, email, phone, 
@@ -427,7 +446,7 @@ def get_student_edit_data(student_id):
 def update_student(student_id):
     """Update student information"""
     try:
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check if student exists
             cursor.execute("SELECT id FROM students WHERE id = %s AND is_active = TRUE", (student_id,))
@@ -496,7 +515,7 @@ def update_student(student_id):
 def deactivate_student(student_id):
     """Deactivate student (soft delete)"""
     try:
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check if student exists and is active
             cursor.execute("SELECT id FROM students WHERE id = %s AND is_active = TRUE", (student_id,))
@@ -521,7 +540,7 @@ def deactivate_student(student_id):
 def activate_student(student_id):
     """Activate student"""
     try:
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         with connection.cursor() as cursor:
             # Check if student exists and is inactive
             cursor.execute("SELECT id FROM students WHERE id = %s AND is_active = FALSE", (student_id,))
@@ -543,7 +562,7 @@ def activate_student(student_id):
 def generate_student_id():
     """Generate next student ID in format STU-YYYY-###"""
     try:
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         with connection.cursor() as cursor:
             current_year = datetime.now().year
 
@@ -584,7 +603,8 @@ def generate_next_student_id():
 @login_required
 @admin_required
 def courses():
-    connection = User.get_db_connection()
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             # Get courses
@@ -659,7 +679,8 @@ def add_course():
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('admin.courses'))
 
-    connection = User.get_db_connection()
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute('''
@@ -692,7 +713,7 @@ def edit_course(course_id):
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('admin.courses'))
 
-    connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             # Check if course exists
@@ -728,7 +749,7 @@ def edit_course(course_id):
 @login_required
 @admin_required
 def delete_course(course_id):
-    connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             # Check if course exists
@@ -772,7 +793,7 @@ def delete_course(course_id):
 @admin_required
 def get_course_details(course_id):
     """API endpoint to get course details for editing"""
-    connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM courses WHERE id = %s AND is_active = TRUE", (course_id,))
@@ -797,7 +818,7 @@ def get_course_details(course_id):
 @admin_required
 def get_course_students(course_id):
     """API endpoint to get students enrolled in a course"""
-    connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -933,6 +954,12 @@ def toggle_cashier(cashier_id):
 @admin_bp.route('/cashiers/delete/<int:cashier_id>')
 @login_required
 @admin_required
+# def logs():
+#     page = request.args.get('page', 1, type=int)
+#     per_page = Config.LOGS_PER_PAGE
+#
+# #     connection = User.get_db_connection()
+#     connection = get_db_connection()
 def delete_cashier(cashier_id):
     """Delete cashier (optional route if you want delete functionality)"""
     try:
@@ -1030,7 +1057,7 @@ def clear_old_logs():
 def profile():
     """Display admin profile page"""
     try:
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         with connection.cursor() as cursor:
             # Get current user data
             cursor.execute("SELECT * FROM users WHERE id = %s", (current_user.id,))
@@ -1097,7 +1124,7 @@ def update_profile():
             flash('Please enter a valid email address', 'error')
             return redirect(url_for('admin.profile'))
 
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 # Check if email is already taken by another user
@@ -1154,7 +1181,7 @@ def change_password():
             flash('Password must be at least 8 characters long', 'error')
             return redirect(url_for('admin.profile'))
 
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 # Get current user

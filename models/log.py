@@ -1,6 +1,7 @@
 import pymysql
 from datetime import datetime, timedelta
 from config import Config
+from database.init_db import get_db_connection
 
 
 class Log:
@@ -38,7 +39,7 @@ class Log:
     @classmethod
     def get_paginated_logs(cls, page=1, per_page=20):
         """Get paginated logs with user information"""
-        connection = cls.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 # Get total count
@@ -96,7 +97,7 @@ class Log:
     @classmethod
     def get_by_id(cls, log_id):
         """Get a specific log by ID"""
-        connection = cls.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 sql = """
@@ -125,7 +126,7 @@ class Log:
     @classmethod
     def get_log_statistics(cls):
         """Get basic log statistics"""
-        connection = cls.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 # Today's count
@@ -160,7 +161,7 @@ class Log:
     @classmethod
     def clear_old_logs(cls, days=90):
         """Clear logs older than specified days"""
-        connection = cls.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cutoff_date = datetime.now() - timedelta(days=days)

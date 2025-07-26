@@ -21,10 +21,10 @@
                 <div class="row align-items-center">
                     <div class="col">
                         <div class="text-uppercase fw-bold small mb-1">Today's Collections</div>
-                        <div class="h4 mb-0">₱{{ "{:,.2f}".format(stats.today_collections or 45750.00) }}</div>
+                        <div class="h4 mb-0">₱{{ "{:,.2f}".format(stats.today_collections or 0.00) }}</div>
                         <div class="small text-dark">
                             <i class="bi bi-arrow-up me-1"></i>
-                            <span class="fw-bold">{{ stats.today_payments or 12 }}</span> payments received
+                            <span class="fw-bold">{{ stats.today_payments or 0}}</span> payments received
                         </div>
                     </div>
                     <div class="col-auto">
@@ -41,10 +41,10 @@
                 <div class="row align-items-center">
                     <div class="col">
                         <div class="text-uppercase fw-bold small mb-1">Pending Payments</div>
-                        <div class="h4 mb-0">{{ stats.pending_payments or 28 }}</div>
+                        <div class="h4 mb-0">{{ stats.pending_payments or 0 }}</div>
                         <div class="small text-dark">
                             <i class="bi bi-exclamation-triangle me-1"></i>
-                            <span class="fw-bold">₱{{ "{:,.2f}".format(stats.pending_amount or 385000.00) }}</span> total
+                            <span class="fw-bold">₱{{ "{:,.2f}".format(stats.pending_amount or 0.00) }}</span> total
                         </div>
                     </div>
                     <div class="col-auto">
@@ -61,7 +61,7 @@
                 <div class="row align-items-center">
                     <div class="col">
                         <div class="text-uppercase fw-bold small mb-1">Students Handled</div>
-                        <div class="h4 mb-0">{{ stats.students_handled or 87 }}</div>
+                        <div class="h4 mb-0">{{ stats.students_handled or 0 }}</div>
                         <div class="small text-dark">
                             <i class="bi bi-people me-1"></i>
                             <span class="fw-bold">Active</span> students
@@ -81,10 +81,10 @@
                 <div class="row align-items-center">
                     <div class="col">
                         <div class="text-uppercase fw-bold small mb-1">This Month</div>
-                        <div class="h4 mb-0">₱{{ "{:,.2f}".format(stats.monthly_collections or 567890.00) }}</div>
+                        <div class="h4 mb-0">₱{{ "{:,.2f}".format(stats.monthly_collections or 0.00) }}</div>
                         <div class="small text-dark">
                             <i class="bi bi-calendar-month me-1"></i>
-                            <span class="fw-bold">{{ stats.monthly_payments or 156 }}</span> transactions
+                            <span class="fw-bold">{{ stats.monthly_payments or 0.00 }}</span> transactions
                         </div>
                     </div>
                     <div class="col-auto">
@@ -97,7 +97,7 @@
 </div>
 
 <!-- Quick Actions -->
-<div class="row mb-4">
+{# <div class="row mb-4">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
@@ -136,7 +136,7 @@
             </div>
         </div>
     </div>
-</div>
+</div> #}
 
 <!-- Recent Payments & Payment Status Overview -->
 <div class="row mb-4">
@@ -148,14 +148,14 @@
                         <i class="bi bi-clock-history me-2"></i>
                         Recent Payments
                     </h5>
-                    <a href="{{ url_for('cashier.payment_history') }}" class="btn btn-sm btn-outline-primary">
+                    <a href="{{ url_for('cashier.payment_history_all') }}" class="btn btn-sm btn-outline-primary">
                         View All
                     </a>
                 </div>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover text-center align-middle">
                         <thead>
                             <tr>
                                 <th>Time</th>
@@ -166,13 +166,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for payment in recent_payments or [
-                                {'time': '2:30 PM', 'student': 'John Doe (STU-2024-001)', 'amount': 12500.00, 'method': 'Cash', 'status': 'completed'},
-                                {'time': '2:15 PM', 'student': 'Jane Smith (STU-2024-002)', 'amount': 15000.00, 'method': 'Bank Transfer', 'status': 'completed'},
-                                {'time': '1:45 PM', 'student': 'Mike Johnson (STU-2024-003)', 'amount': 8000.00, 'method': 'GCash', 'status': 'completed'},
-                                {'time': '1:30 PM', 'student': 'Sarah Wilson (STU-2024-004)', 'amount': 5000.00, 'method': 'Cash', 'status': 'completed'},
-                                {'time': '12:45 PM', 'student': 'David Brown (STU-2024-005)', 'amount': 4250.00, 'method': 'Credit Card', 'status': 'pending'}
-                            ] %}
+                            {% for payment in recent_payments %}
                             <tr>
                                 <td>{{ payment.time }}</td>
                                 <td>{{ payment.student }}</td>
@@ -181,13 +175,17 @@
                                     <span class="badge bg-light text-dark">{{ payment.method }}</span>
                                 </td>
                                 <td>
-                                    {% if payment.status == 'completed' %}
+                                    {% if payment.status == 'paid' %}
                                         <span class="badge bg-success">
-                                            <i class="bi bi-check-circle me-1"></i>Completed
+                                            <i class="bi bi-check-circle me-1"></i>Paid
                                         </span>
-                                    {% else %}
-                                        <span class="badge bg-warning">
-                                            <i class="bi bi-hourglass-split me-1"></i>Pending
+                                    {% elif payment.status == 'partial' %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Partially Paid
+                                        </span>
+                                    {% elif payment.status == 'unpaid' %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle me-1"></i>Unpaid
                                         </span>
                                     {% endif %}
                                 </td>
@@ -212,40 +210,30 @@
                 <div class="mb-3">
                     <div class="d-flex justify-content-between mb-2">
                         <span><i class="bi bi-cash text-success me-2"></i>Cash</span>
-                        <span class="fw-bold">45%</span>
+                        <span class="fw-bold">{{ payment_data.cash }}%</span>
                     </div>
                     <div class="progress mb-3">
-                        <div class="progress-bar bg-success" style="width: 45%"></div>
+                        <div class="progress-bar bg-success" style="width: {{ payment_data.cash }}%"></div>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <div class="d-flex justify-content-between mb-2">
                         <span><i class="bi bi-bank text-primary me-2"></i>Bank Transfer</span>
-                        <span class="fw-bold">30%</span>
+                        <span class="fw-bold">{{ payment_data.bank }}%</span>
                     </div>
                     <div class="progress mb-3">
-                        <div class="progress-bar bg-primary" style="width: 30%"></div>
+                        <div class="progress-bar bg-primary" style="width: {{ payment_data.bank }}%"></div>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <div class="d-flex justify-content-between mb-2">
-                        <span><i class="bi bi-phone text-info me-2"></i>GCash/PayMaya</span>
-                        <span class="fw-bold">20%</span>
+                        <span><i class="bi bi-phone text-info me-2"></i>E-Wallet</span>
+                        <span class="fw-bold">{{ payment_data.gcash }}%</span>
                     </div>
                     <div class="progress mb-3">
-                        <div class="progress-bar bg-info" style="width: 20%"></div>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span><i class="bi bi-credit-card text-warning me-2"></i>Credit Card</span>
-                        <span class="fw-bold">5%</span>
-                    </div>
-                    <div class="progress mb-3">
-                        <div class="progress-bar bg-warning" style="width: 5%"></div>
+                        <div class="progress-bar bg-info" style="width: {{ payment_data.gcash }}%"></div>
                     </div>
                 </div>
 
@@ -258,6 +246,7 @@
 </div>
 
 <!-- Students Requiring Attention -->
+{% if false %}
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -281,11 +270,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for student in attention_students or [
-                                {'name': 'Mike Johnson', 'id': 'STU-2024-003', 'course': 'Mobile Development', 'total_fee': 28000.00, 'balance': 28000.00, 'days_overdue': 15},
-                                {'name': 'Lisa Garcia', 'id': 'STU-2024-007', 'course': 'Data Science', 'total_fee': 30000.00, 'balance': 20000.00, 'days_overdue': 8},
-                                {'name': 'Robert Chen', 'id': 'STU-2024-012', 'course': 'Web Development', 'total_fee': 25000.00, 'balance': 12500.00, 'days_overdue': 5}
-                            ] %}
+                            {% for student in attention_students %}
                             <tr>
                                 <td>
                                     <strong>{{ student.name }}</strong><br>
@@ -298,10 +283,10 @@
                                     <span class="badge bg-danger">{{ student.days_overdue }} days</span>
                                 </td>
                                 <td>
-                                    <a href="{{ url_for('cashier.collect_payment', student_id=student.id) }}"
+                                    {# <a href="{{ url_for('cashier.collect_payment', student_id=student.id) }}"
                                        class="btn btn-sm btn-primary">
                                         <i class="bi bi-credit-card me-1"></i>Collect Payment
-                                    </a>
+                                    </a> #}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -312,6 +297,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

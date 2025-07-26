@@ -5,6 +5,8 @@ from utils.helpers import generate_otp, log_activity
 import pymysql
 from config import Config
 from datetime import datetime, timedelta
+from database.init_db import get_db_connection
+
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -29,7 +31,8 @@ def forgot_password():
         expires_at = datetime.now() + timedelta(minutes=10)
 
         # Save OTP to database
-        connection = User.get_db_connection()
+        # connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute('''
@@ -64,7 +67,8 @@ def verify_otp():
             return render_template('verify_otp.html')
 
         # Verify OTP
-        connection = User.get_db_connection()
+#         connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute('''
@@ -108,7 +112,8 @@ def reset_password():
         # Update password
         if User.update_password(session['reset_email'], password):
             # Mark OTP as used
-            connection = User.get_db_connection()
+#             connection = User.get_db_connection()
+            connection = get_db_connection()
             try:
                 with connection.cursor() as cursor:
                     cursor.execute('''
