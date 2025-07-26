@@ -563,7 +563,7 @@ def generate_student_id():
             else:
                 next_number = 1
 
-            return f'STU-{current_year}-{next_number:05d}'
+            return f'STU-{current_year}-{next_number:03d}'
 
     except Exception:
         # Fallback to basic format
