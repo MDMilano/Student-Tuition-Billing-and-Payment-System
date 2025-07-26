@@ -54,8 +54,9 @@ def login():
             return redirect(url_for('index'))
 
         login_user(user)
+        # Simple login log with role
         session['user_name'] = user.name
-        log_activity(user.id, f"User logged in: {user.email}")
+        log_activity(user.id, f"User login: {user.email}", role=user.role)
 
         if user.role == 'admin':
             return redirect(url_for('admin.dashboard'))
@@ -69,18 +70,19 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
-    log_activity(current_user.id, f"User logged out: {current_user.email}")
+    # Simple logout log with role
+    log_activity(current_user.id, f"User logout: {current_user.email}", role=current_user.role)
     logout_user()
     flash('You have been logged out successfully.', 'success')
     return redirect(url_for('index'))
 
-@app.errorhandler(404)
-def not_found(error):
-    return render_template('404.html'), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    return render_template('500.html'), 500
+# @app.errorhandler(404)
+# def not_found(error):
+#     return render_template('404.html'), 404
+#
+# @app.errorhandler(500)
+# def internal_error(error):
+#     return render_template('500.html'), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000)

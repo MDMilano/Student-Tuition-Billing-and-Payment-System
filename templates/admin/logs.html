@@ -8,14 +8,9 @@
         <h1 class="h3 mb-0">System Logs</h1>
         <p class="text-muted">Monitor system activities and user actions</p>
     </div>
-    <div class="btn-group" role="group">
-        <button type="button" class="btn btn-outline-primary" onclick="exportLogs()">
-            <i class="bi bi-download me-2"></i>Export Logs
-        </button>
-        <button type="button" class="btn btn-outline-danger" onclick="clearLogs()">
-            <i class="bi bi-trash me-2"></i>Clear Old Logs
-        </button>
-    </div>
+    <button type="button" class="btn btn-outline-danger" onclick="clearOldLogs()">
+        <i class="bi bi-trash me-2"></i>Clear Old Logs
+    </button>
 </div>
 
 <!-- Log Statistics -->
@@ -24,7 +19,7 @@
         <div class="card stats-card h-100">
             <div class="card-body text-center">
                 <i class="bi bi-journal-text display-4 mb-2"></i>
-                <h4 class="mb-0">{{ 1247 }}</h4>
+                <h4 class="mb-0">{{ logs|length }}</h4>
                 <small>Total Logs</small>
             </div>
         </div>
@@ -33,7 +28,7 @@
         <div class="card stats-card-secondary h-100">
             <div class="card-body text-center">
                 <i class="bi bi-calendar2-day display-4 mb-2"></i>
-                <h4 class="mb-0">{{  89 }}</h4>
+                <h4 class="mb-0">{{ today_count }}</h4>
                 <small>Today's Activities</small>
             </div>
         </div>
@@ -41,87 +36,18 @@
     <div class="col-md-3">
         <div class="card stats-card h-100">
             <div class="card-body text-center">
-                <i class="bi bi-exclamation-triangle display-4 mb-2 text-warning"></i>
-                <h4 class="mb-0">{{  12 }}</h4>
-                <small>Warnings</small>
+                <i class="bi bi-people display-4 mb-2"></i>
+                <h4 class="mb-0">{{ unique_users }}</h4>
+                <small>Active Users</small>
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card stats-card-secondary h-100">
             <div class="card-body text-center">
-                <i class="bi bi-x-octagon display-4 mb-2 text-danger"></i>
-                <h4 class="mb-0">{{  3 }}</h4>
-                <small>Errors</small>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Filters and Search -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-4">
-                <label for="searchLogs" class="form-label">Search Logs</label>
-                <div class="input-group">
-                    <input type="text" class="form-control" id="searchLogs" 
-                           placeholder="Search by user, action, or description">
-                    <button class="btn btn-outline-secondary" type="button">
-                        <i class="bi bi-search"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <label for="filterLevel" class="form-label">Log Level</label>
-                <select class="form-select" id="filterLevel">
-                    <option value="">All Levels</option>
-                    <option value="info">Info</option>
-                    <option value="warning">Warning</option>
-                    <option value="error">Error</option>
-                    <option value="success">Success</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label for="filterAction" class="form-label">Action Type</label>
-                <select class="form-select" id="filterAction">
-                    <option value="">All Actions</option>
-                    <option value="login">Login</option>
-                    <option value="logout">Logout</option>
-                    <option value="payment">Payment</option>
-                    <option value="student">Student Mgmt</option>
-                    <option value="course">Course Mgmt</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label for="filterDate" class="form-label">Date Range</label>
-                <select class="form-select" id="filterDate">
-                    <option value="">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                    <option value="custom">Custom Range</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">&nbsp;</label>
-                <div class="d-grid">
-                    <button type="button" class="btn btn-secondary" onclick="applyFilters()">
-                        <i class="bi bi-funnel me-1"></i>Apply
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Custom Date Range (hidden by default) -->
-        <div class="row g-3 mt-2" id="customDateRange" style="display: none;">
-            <div class="col-md-3">
-                <label for="startDate" class="form-label">Start Date</label>
-                <input type="date" class="form-control" id="startDate">
-            </div>
-            <div class="col-md-3">
-                <label for="endDate" class="form-label">End Date</label>
-                <input type="date" class="form-control" id="endDate">
+                <i class="bi bi-clock-history display-4 mb-2"></i>
+                <h4 class="mb-0">{{ recent_count }}</h4>
+                <small>Last Hour</small>
             </div>
         </div>
     </div>
@@ -135,139 +61,60 @@
                 <i class="bi bi-list-ul me-2"></i>
                 Activity Logs
             </h5>
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
-                <label class="form-check-label" for="autoRefresh">
-                    Auto Refresh
-                </label>
-            </div>
+            <small class="text-muted">Last updated: {{ now.strftime('%b %d, %Y %H:%M') }}</small>
         </div>
     </div>
     <div class="card-body">
+        {% if logs %}
         <div class="table-responsive">
             <table class="table table-hover" id="logsTable">
                 <thead>
                     <tr>
-                        <th width="15%">Timestamp</th>
-                        <th width="10%">Level</th>
-                        <th width="15%">User</th>
-                        <th width="15%">Action</th>
-                        <th width="30%">Description</th>
-                        <th width="10%">IP Address</th>
-                        <th width="5%">Details</th>
+                        <th>Date & Time</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Role</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for log in logs or [
-                        {
-                            'timestamp': '2024-06-30 14:32:15',
-                            'level': 'success',
-                            'user': 'John Doe (Admin)',
-                            'action': 'Student Management',
-                            'description': 'Added new student: Jane Wilson',
-                            'ip_address': '192.168.1.105',
-                            'details': 'Student ID: STU-2024-156, Course: Web Development'
-                        },
-                        {
-                            'timestamp': '2024-06-30 14:28:43',
-                            'level': 'info',
-                            'user': 'Sarah Wilson (Cashier)',
-                            'action': 'Payment',
-                            'description': 'Payment received from Mike Johnson',
-                            'ip_address': '192.168.1.112',
-                            'details': 'Amount: ₱15,000.00, Method: Cash'
-                        },
-                        {
-                            'timestamp': '2024-06-30 14:15:22',
-                            'level': 'warning',
-                            'user': 'System',
-                            'action': 'Login Attempt',
-                            'description': 'Failed login attempt for admin@school.com',
-                            'ip_address': '192.168.1.150',
-                            'details': 'Invalid password, attempt 2 of 3'
-                        },
-                        {
-                            'timestamp': '2024-06-30 14:12:08',
-                            'level': 'info',
-                            'user': 'David Brown (Cashier)',
-                            'action': 'Login',
-                            'description': 'User logged in successfully',
-                            'ip_address': '192.168.1.108',
-                            'details': 'Session ID: sess_abc123def456'
-                        },
-                        {
-                            'timestamp': '2024-06-30 14:05:31',
-                            'level': 'success',
-                            'user': 'John Doe (Admin)',
-                            'action': 'Course Management',
-                            'description': 'Updated course: Data Science',
-                            'ip_address': '192.168.1.105',
-                            'details': 'Updated fee from ₱28,000 to ₱30,000'
-                        },
-                        {
-                            'timestamp': '2024-06-30 13:58:17',
-                            'level': 'error',
-                            'user': 'System',
-                            'action': 'System Error',
-                            'description': 'Database connection timeout',
-                            'ip_address': 'N/A',
-                            'details': 'Error: Connection timeout after 30 seconds'
-                        },
-                        {
-                            'timestamp': '2024-06-30 13:45:52',
-                            'level': 'info',
-                            'user': 'Mary Johnson (Cashier)',
-                            'action': 'Payment History',
-                            'description': 'Generated payment report',
-                            'ip_address': '192.168.1.115',
-                            'details': 'Report period: June 1-30, 2024'
-                        },
-                        {
-                            'timestamp': '2024-06-30 13:32:19',
-                            'level': 'success',
-                            'user': 'John Doe (Admin)',
-                            'action': 'Cashier Management',
-                            'description': 'Activated cashier account: Lisa Martinez',
-                            'ip_address': '192.168.1.105',
-                            'details': 'Cashier ID: CASH-004'
-                        }
-                    ] %}
-                    <tr class="log-row" data-level="{{ log.level }}" data-action="{{ log.action.lower().replace(' ', '') }}">
+                    {% for log in logs %}
+                    <tr>
                         <td>
-                            <small class="text-muted">{{ log.timestamp }}</small>
+                            <small class="text-muted">
+                                {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}
+                            </small>
                         </td>
                         <td>
-                            {% if log.level == 'success' %}
-                                <span class="badge bg-success">
-                                    <i class="bi bi-check-circle me-1"></i>Success
-                                </span>
-                            {% elif log.level == 'info' %}
-                                <span class="badge bg-info">
-                                    <i class="bi bi-info-circle me-1"></i>Info
-                                </span>
-                            {% elif log.level == 'warning' %}
-                                <span class="badge bg-warning">
-                                    <i class="bi bi-exclamation-triangle me-1"></i>Warning
-                                </span>
-                            {% elif log.level == 'error' %}
-                                <span class="badge bg-danger">
-                                    <i class="bi bi-x-circle me-1"></i>Error
-                                </span>
+                            <strong>{{ log.user_name if log.user_name else 'System' }}</strong>
+                            <br>
+                            <small class="text-muted">ID: {{ log.user_id }}</small>
+                        </td>
+                        <td>
+                            {% if 'login' in log.action.lower() %}
+                                <span class="badge bg-success">{{ log.action }}</span>
+                            {% elif 'logout' in log.action.lower() %}
+                                <span class="badge bg-danger">{{ log.action }}</span>
+                            {% else %}
+                                <span class="badge bg-primary">{{ log.action }}</span>
                             {% endif %}
                         </td>
                         <td>
-                            <strong>{{ log.user }}</strong>
+                            {% if log.role %}
+                                {% if log.role == 'admin' %}
+                                    <span class="badge bg-warning text-dark">Admin</span>
+                                {% elif log.role == 'cashier' %}
+                                    <span class="badge bg-info">Cashier</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ log.role|title }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <span class="badge bg-secondary">{{ log.action }}</span>
-                        </td>
-                        <td>{{ log.description }}</td>
-                        <td>
-                            <small class="text-muted">{{ log.ip_address }}</small>
-                        </td>
-                        <td>
-                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                    onclick="showLogDetails('{{ loop.index }}')"
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    onclick="showLogDetails({{ log.id }})"
                                     data-bs-toggle="tooltip" title="View Details">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -277,29 +124,61 @@
                 </tbody>
             </table>
         </div>
-        
+
         <!-- Pagination -->
-        <nav aria-label="Logs pagination">
+        {% if pagination %}
+        <nav aria-label="Logs pagination" class="mt-3">
             <ul class="pagination justify-content-center">
-                <li class="page-item disabled">
-                    <a class="page-link"><i class="bi bi-chevron-left"></i></a>
-                </li>
-                <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                <li class="page-item"><a class="page-link" href="#">2</a></li>
-                <li class="page-item"><a class="page-link" href="#">3</a></li>
-                <li class="page-item"><a class="page-link" href="#">4</a></li>
-                <li class="page-item"><a class="page-link" href="#">5</a></li>
+                {% if pagination.has_prev %}
                 <li class="page-item">
-                    <a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a>
+                    <a class="page-link" href="{{ url_for('admin.logs', page=pagination.prev_num) }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
                 </li>
+                {% endif %}
+
+                {% for page_num in pagination.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != pagination.page %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.logs', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.logs', page=pagination.next_num) }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
             </ul>
         </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-journal-x display-1 text-muted"></i>
+            <h5 class="mt-3">No Logs Found</h5>
+            <p class="text-muted">No system activities have been recorded yet.</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <!-- Log Details Modal -->
 <div class="modal fade" id="logDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
@@ -310,37 +189,17 @@
             </div>
             <div class="modal-body">
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-12">
                         <label class="form-label fw-bold">Timestamp</label>
                         <p id="detailTimestamp" class="form-control-plaintext"></p>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Log Level</label>
-                        <p id="detailLevel" class="form-control-plaintext"></p>
-                    </div>
-                    <div class="col-md-6">
+                    <div class="col-12">
                         <label class="form-label fw-bold">User</label>
                         <p id="detailUser" class="form-control-plaintext"></p>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Action Type</label>
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Action</label>
                         <p id="detailAction" class="form-control-plaintext"></p>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">IP Address</label>
-                        <p id="detailIP" class="form-control-plaintext"></p>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Session</label>
-                        <p id="detailSession" class="form-control-plaintext">Active</p>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label fw-bold">Description</label>
-                        <p id="detailDescription" class="form-control-plaintext"></p>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label fw-bold">Additional Details</label>
-                        <p id="detailExtra" class="form-control-plaintext"></p>
                     </div>
                 </div>
             </div>
@@ -356,106 +215,51 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
+    var tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+        new bootstrap.Tooltip(tooltipTriggerEl);
     });
-
-    // Search functionality
-    document.getElementById('searchLogs').addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        const rows = document.querySelectorAll('.log-row');
-        
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(searchTerm) ? '' : 'none';
-        });
-    });
-
-    // Custom date range toggle
-    document.getElementById('filterDate').addEventListener('change', function() {
-        const customDateRange = document.getElementById('customDateRange');
-        if (this.value === 'custom') {
-            customDateRange.style.display = 'block';
-        } else {
-            customDateRange.style.display = 'none';
-        }
-    });
-
-    // Auto refresh functionality
-    let autoRefreshInterval;
-    document.getElementById('autoRefresh').addEventListener('change', function() {
-        if (this.checked) {
-            autoRefreshInterval = setInterval(function() {
-                // Simulate refresh - in real app, this would reload data
-                console.log('Auto refresh triggered');
-            }, 30000); // 30 seconds
-        } else {
-            clearInterval(autoRefreshInterval);
-        }
-    });
-
-    // Initialize auto refresh
-    autoRefreshInterval = setInterval(function() {
-        console.log('Auto refresh triggered');
-    }, 30000);
 });
 
-function applyFilters() {
-    const levelFilter = document.getElementById('filterLevel').value;
-    const actionFilter = document.getElementById('filterAction').value;
-    const dateFilter = document.getElementById('filterDate').value;
-    const rows = document.querySelectorAll('.log-row');
-    
-    rows.forEach(row => {
-        let show = true;
-        
-        // Level filter
-        if (levelFilter && !row.getAttribute('data-level').includes(levelFilter)) {
-            show = false;
-        }
-        
-        // Action filter
-        if (actionFilter && !row.getAttribute('data-action').includes(actionFilter)) {
-            show = false;
-        }
-        
-        row.style.display = show ? '' : 'none';
-    });
+function showLogDetails(logId) {
+    // Make AJAX request to get log details
+    fetch(`/admin/logs/${logId}/details`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('detailTimestamp').textContent = data.created_at || 'N/A';
+            document.getElementById('detailUser').textContent = data.user_name || 'System';
+            document.getElementById('detailAction').textContent = data.action || 'N/A';
+
+            const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error fetching log details:', error);
+            alert('Error loading log details');
+        });
 }
 
-function showLogDetails(index) {
-    // Sample data - in real app, this would fetch actual log details
-    const logData = {
-        timestamp: '2024-06-30 14:32:15',
-        level: 'Success',
-        user: 'John Doe (Admin)',
-        action: 'Student Management',
-        description: 'Added new student: Jane Wilson',
-        ip: '192.168.1.105',
-        details: 'Student ID: STU-2024-156, Course: Web Development, Total Fee: ₱25,000'
-    };
-    
-    document.getElementById('detailTimestamp').textContent = logData.timestamp;
-    document.getElementById('detailLevel').textContent = logData.level;
-    document.getElementById('detailUser').textContent = logData.user;
-    document.getElementById('detailAction').textContent = logData.action;
-    document.getElementById('detailDescription').textContent = logData.description;
-    document.getElementById('detailIP').textContent = logData.ip;
-    document.getElementById('detailExtra').textContent = logData.details;
-    
-    const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
-    modal.show();
-}
-
-function exportLogs() {
-    // Implement export functionality
-    alert('Exporting logs... This feature will export logs to CSV format.');
-}
-
-function clearLogs() {
-    if (confirm('Are you sure you want to clear old logs? This will permanently delete logs older than 90 days.')) {
-        alert('Old logs cleared successfully.');
+function clearOldLogs() {
+    if (confirm('Are you sure you want to clear logs older than 90 days? This action cannot be undone.')) {
+        fetch('/admin/logs/clear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Old logs cleared successfully.');
+                location.reload();
+            } else {
+                alert('Error clearing logs: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error clearing logs');
+        });
     }
 }
 </script>

@@ -151,9 +151,7 @@ def create_tables(port):
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     user_id INT NOT NULL,
                     action VARCHAR(255) NOT NULL,
-                    table_name VARCHAR(50),
-                    record_id INT,
-                    user_agent TEXT,
+                    role TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )
@@ -166,7 +164,11 @@ def create_tables(port):
                     email VARCHAR(100) NOT NULL,
                     otp VARCHAR(6) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+<<<<<<< HEAD:database/db.py
                     expires_at TIMESTAMP NULL,
+=======
+                    expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL 15 MINUTE),
+>>>>>>> origin/main:database/init_db.py
                     is_used BOOLEAN DEFAULT FALSE
                 )
             ''')

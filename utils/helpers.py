@@ -1,18 +1,19 @@
 import random
 import string
+from datetime import datetime
 from functools import wraps
 from flask import flash, redirect, url_for
 from flask_login import current_user
 import pymysql
 from config import Config
-from database.db import get_working_connection
+from database.init_db import get_working_connection
 
 
 def generate_otp():
     return ''.join(random.choices(string.digits, k=6))
 
 
-def log_activity(user_id, action, table_name=None, record_id=None, ip_address=None, user_agent=None):
+def log_activity(user_id, action, role=None, table_name=None, record_id=None, ip_address=None, user_agent=None):
     # connection = pymysql.connect(
     #     host=Config.MYSQL_HOST,
     #     user=Config.MYSQL_USER,
@@ -32,17 +33,31 @@ def log_activity(user_id, action, table_name=None, record_id=None, ip_address=No
         cursorclass=pymysql.cursors.DictCursor
     )
 
+    """Log user activity with the new table structure"""
     try:
+        from models.user import User  # Import here to avoid circular imports
+        connection = User.get_db_connection()
+
         with connection.cursor() as cursor:
-            cursor.execute('''
-                INSERT INTO logs (user_id, action, table_name, record_id, ip_address, user_agent)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (user_id, action, table_name, record_id, ip_address, user_agent))
+            # Get user role if not provided
+            if role is None:
+                cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+                user = cursor.fetchone()
+                role = user['role'] if user else 'unknown'
+
+            # Insert log with new table structure
+            cursor.execute("""
+                INSERT INTO logs (user_id, action, role, created_at)
+                VALUES (%s, %s, %s, NOW())
+            """, (user_id, action, role))
+
             connection.commit()
+
     except Exception as e:
         print(f"Error logging activity: {e}")
     finally:
-        connection.close()
+        if 'connection' in locals():
+            connection.close()
 
 
 def admin_required(f):
