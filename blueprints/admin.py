@@ -337,7 +337,7 @@ def add_student():
     email = request.form.get('email')
     phone = request.form.get('phone')
     address = request.form.get('address')
-    course_id = request.form.get('course')
+    course_id = request.form.get('course_id')
     enrollment_date = request.form.get('enrollment_date')
 
     if not all([student_id, first_name, last_name, email, phone, address, enrollment_date, course_id]):
@@ -582,7 +582,7 @@ def generate_student_id():
             else:
                 next_number = 1
 
-            return f'STU-{current_year}-{next_number:05d}'
+            return f'STU-{current_year}-{next_number:03d}'
 
     except Exception:
         # Fallback to basic format
