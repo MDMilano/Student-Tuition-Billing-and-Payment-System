@@ -29,59 +29,49 @@
                 <form id="profileForm">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="firstName" class="form-label">First Name</label>
-                            <input type="text" class="form-control" id="firstName" 
-                                   value="{{ user.first_name or 'Maria' }}" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="lastName" class="form-label">Last Name</label>
-                            <input type="text" class="form-control" id="lastName" 
-                                   value="{{ user.last_name or 'Santos' }}" readonly>
+                            <label for="fullName" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="fullName"
+                                   value="{{ current_user.name or 'Maria' }}" readonly>
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="email" class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="email" 
-                                   value="{{ user.email or 'maria.santos@tuition.system' }}" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="phone" class="form-label">Phone Number</label>
-                            <input type="tel" class="form-control" id="phone" 
-                                   value="{{ user.phone or '+63 912 345 6789' }}" readonly>
+                            <input type="email" class="form-control" id="email"
+                                   value="{{ current_user.email or 'maria.santos@tuition.system' }}" readonly>
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="employeeId" class="form-label">Employee ID</label>
-                            <input type="text" class="form-control" id="employeeId" 
-                                   value="{{ user.employee_id or 'CSH-2024-001' }}" readonly>
+                            <input type="text" class="form-control" id="employeeId"
+                                   value="{{ current_user.employee_id or 'CSH-2024-001' }}" readonly>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="department" class="form-label">Department</label>
-                            <input type="text" class="form-control" id="department" 
-                                   value="{{ user.department or 'Finance - Cashier' }}" readonly>
+                            <input type="text" class="form-control" id="department"
+                                   value="{{ current_user.department or 'Finance - Cashier' }}" readonly>
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="dateHired" class="form-label">Date Hired</label>
-                            <input type="date" class="form-control" id="dateHired" 
-                                   value="{{ user.date_hired or '2024-01-15' }}" readonly>
+                            <input type="date" class="form-control" id="dateHired"
+                                   value="{{ current_user.date_hired or '2024-01-15' }}" readonly>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="status" class="form-label">Employment Status</label>
-                            <input type="text" class="form-control" id="status" 
-                                   value="{{ user.status or 'Active' }}" readonly>
+                            <input type="text" class="form-control" id="status"
+                                   value="{{ current_user.status or 'Active' }}" readonly>
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="address" class="form-label">Address</label>
-                        <textarea class="form-control" id="address" rows="3" readonly>{{ user.address or '123 Main Street, Quezon City, Metro Manila, Philippines' }}</textarea>
+                        <textarea class="form-control" id="address" rows="3" readonly>{{ current_user.address or '123 Main Street, Quezon City, Metro Manila, Philippines' }}</textarea>
                     </div>
 
                     <div class="d-none" id="editActions">
@@ -101,14 +91,14 @@
     </div>
 
     <!-- Profile Picture and Account Info -->
-    <div class="col-lg-4 mb-4">
+    {# <div class="col-lg-4 mb-4">
         <div class="card">
             <div class="card-header text-center">
                 <h5 class="mb-0">Profile Picture</h5>
             </div>
             <div class="card-body text-center">
                 <div class="mb-3">
-                    <img src="https://via.placeholder.com/150x150/B2DFDB/37474F?text=MS" 
+                    <img src="https://via.placeholder.com/150x150/B2DFDB/37474F?text=MS"
                          alt="Profile Picture" class="rounded-circle mb-3" width="150" height="150" id="profileImage">
                 </div>
                 <div class="mb-3">
@@ -130,7 +120,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> #}
 </div>
 
 <!-- Change Password Section -->
@@ -148,7 +138,7 @@
                     <div class="mb-3">
                         <label for="currentPassword" class="form-label">Current Password</label>
                         <div class="input-group">
-                            <input type="password" class="form-control" id="currentPassword" 
+                            <input type="password" class="form-control" id="currentPassword"
                                    placeholder="Enter your current password">
                             <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('currentPassword')">
                                 <i class="bi bi-eye" id="currentPasswordIcon"></i>
@@ -159,7 +149,7 @@
                     <div class="mb-3">
                         <label for="newPassword" class="form-label">New Password</label>
                         <div class="input-group">
-                            <input type="password" class="form-control" id="newPassword" 
+                            <input type="password" class="form-control" id="newPassword"
                                    placeholder="Enter new password">
                             <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('newPassword')">
                                 <i class="bi bi-eye" id="newPasswordIcon"></i>
@@ -173,7 +163,7 @@
                     <div class="mb-3">
                         <label for="confirmPassword" class="form-label">Confirm New Password</label>
                         <div class="input-group">
-                            <input type="password" class="form-control" id="confirmPassword" 
+                            <input type="password" class="form-control" id="confirmPassword"
                                    placeholder="Confirm new password">
                             <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('confirmPassword')">
                                 <i class="bi bi-eye" id="confirmPasswordIcon"></i>
@@ -202,7 +192,7 @@
     </div>
 
     <!-- Account Settings -->
-    <div class="col-lg-4 mb-4">
+    {# <div class="col-lg-4 mb-4">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -262,11 +252,11 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> #}
 </div>
 
 <!-- Activity Log -->
-<div class="row">
+{# <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
@@ -335,7 +325,7 @@
             </div>
         </div>
     </div>
-</div>
+</div> #}
 {% endblock %}
 
 {% block scripts %}
@@ -343,7 +333,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize password strength checker
     document.getElementById('newPassword').addEventListener('input', checkPasswordStrength);
-    
+
     // Initialize photo upload
     document.getElementById('photoUpload').addEventListener('change', handlePhotoUpload);
 });
@@ -352,9 +342,9 @@ function toggleEditMode() {
     const inputs = document.querySelectorAll('#profileForm input, #profileForm textarea');
     const editActions = document.getElementById('editActions');
     const editButton = document.querySelector('button[onclick="toggleEditMode()"]');
-    
+
     const isReadonly = inputs[0].hasAttribute('readonly');
-    
+
     inputs.forEach(input => {
         if (input.id !== 'employeeId' && input.id !== 'status') { // Keep some fields readonly
             if (isReadonly) {
@@ -366,7 +356,7 @@ function toggleEditMode() {
             }
         }
     });
-    
+
     if (isReadonly) {
         editActions.classList.remove('d-none');
         editButton.innerHTML = '<i class="bi bi-x me-2"></i>Cancel Edit';
@@ -401,7 +391,7 @@ function saveProfile() {
 function togglePassword(fieldId) {
     const field = document.getElementById(fieldId);
     const icon = document.getElementById(fieldId + 'Icon');
-    
+
     if (field.type === 'password') {
         field.type = 'text';
         icon.className = 'bi bi-eye-slash';
@@ -415,17 +405,17 @@ function checkPasswordStrength() {
     const password = document.getElementById('newPassword').value;
     const strengthBar = document.getElementById('passwordStrength');
     const strengthText = document.getElementById('passwordStrengthText');
-    
+
     let strength = 0;
     let label = 'Very Weak';
     let color = 'bg-danger';
-    
+
     if (password.length >= 8) strength += 20;
     if (/[a-z]/.test(password)) strength += 20;
     if (/[A-Z]/.test(password)) strength += 20;
     if (/[0-9]/.test(password)) strength += 20;
     if (/[^A-Za-z0-9]/.test(password)) strength += 20;
-    
+
     if (strength >= 80) {
         label = 'Very Strong';
         color = 'bg-success';
@@ -439,7 +429,7 @@ function checkPasswordStrength() {
         label = 'Weak';
         color = 'bg-warning';
     }
-    
+
     strengthBar.style.width = strength + '%';
     strengthBar.className = 'progress-bar ' + color;
     strengthText.textContent = 'Password strength: ' + label;
@@ -449,22 +439,22 @@ function changePassword() {
     const currentPassword = document.getElementById('currentPassword').value;
     const newPassword = document.getElementById('newPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
-    
+
     if (!currentPassword || !newPassword || !confirmPassword) {
         alert('Please fill in all password fields.');
         return;
     }
-    
+
     if (newPassword !== confirmPassword) {
         alert('New passwords do not match.');
         return;
     }
-    
+
     if (newPassword.length < 8) {
         alert('Password must be at least 8 characters long.');
         return;
     }
-    
+
     // Show loading state
     const changeBtn = document.querySelector('button[onclick="changePassword()"]');
     const originalText = changeBtn.innerHTML;
@@ -494,7 +484,7 @@ function handlePhotoUpload(event) {
             document.getElementById('profileImage').src = e.target.result;
         };
         reader.readAsDataURL(file);
-        
+
         // Simulate upload
         setTimeout(() => {
             alert('Profile picture updated successfully!');

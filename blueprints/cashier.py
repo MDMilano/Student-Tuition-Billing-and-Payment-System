@@ -716,4 +716,28 @@ def payment_history_all():
 @login_required
 @cashier_required
 def profile():
-    return render_template('cashier/profile.html')
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Fetch user details from the database
+            cursor.execute('''
+                SELECT name, email
+                FROM users
+                WHERE id = %s
+            ''', (current_user.id,))
+            user = cursor.fetchone()
+
+            if not user:
+                flash('User  not found.', 'error')
+                return redirect(url_for('cashier.dashboard'))
+
+            # Prepare user data to pass to the template
+            user_data = {
+                'name': user['name'],
+                'email': user['email'],
+            }
+
+    finally:
+        connection.close()
+
+    return render_template('cashier/profile.html', current_user=user_data)
