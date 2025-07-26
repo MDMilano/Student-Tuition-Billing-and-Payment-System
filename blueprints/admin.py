@@ -5,6 +5,7 @@ from models.user import User
 from utils.helpers import log_activity, admin_required
 import pymysql
 from config import Config
+from database.db import get_db_connection
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -13,7 +14,8 @@ admin_bp = Blueprint('admin', __name__)
 @login_required
 @admin_required
 def dashboard():
-    connection = User.get_db_connection()
+    # connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             # Get total students
@@ -57,7 +59,8 @@ def dashboard():
 @login_required
 @admin_required
 def students():
-    connection = User.get_db_connection()
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute('''
@@ -95,7 +98,8 @@ def add_student():
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('admin.students'))
 
-    connection = User.get_db_connection()
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute('''
@@ -125,7 +129,8 @@ def add_student():
 @login_required
 @admin_required
 def courses():
-    connection = User.get_db_connection()
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM courses WHERE is_active = TRUE ORDER BY name")
@@ -149,7 +154,8 @@ def add_course():
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('admin.courses'))
 
-    connection = User.get_db_connection()
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute('''
@@ -219,7 +225,8 @@ def logs():
     page = request.args.get('page', 1, type=int)
     per_page = Config.LOGS_PER_PAGE
 
-    connection = User.get_db_connection()
+#     connection = User.get_db_connection()
+    connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute('''

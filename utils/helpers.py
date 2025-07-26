@@ -5,6 +5,7 @@ from flask import flash, redirect, url_for
 from flask_login import current_user
 import pymysql
 from config import Config
+from database.db import get_working_connection
 
 
 def generate_otp():
@@ -12,8 +13,19 @@ def generate_otp():
 
 
 def log_activity(user_id, action, table_name=None, record_id=None, ip_address=None, user_agent=None):
+    # connection = pymysql.connect(
+    #     host=Config.MYSQL_HOST,
+    #     user=Config.MYSQL_USER,
+    #     password=Config.MYSQL_PASSWORD,
+    #     database=Config.MYSQL_DB,
+    #     cursorclass=pymysql.cursors.DictCursor
+    # )
+
+    '''use automated port'''
+    _, port = get_working_connection()
     connection = pymysql.connect(
         host=Config.MYSQL_HOST,
+        port=port,  # ✅ Add this line
         user=Config.MYSQL_USER,
         password=Config.MYSQL_PASSWORD,
         database=Config.MYSQL_DB,

@@ -2,6 +2,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from flask_login import UserMixin
 import pymysql
 from config import Config
+from database.db import get_db_connection
 
 
 class User(UserMixin):
@@ -22,19 +23,23 @@ class User(UserMixin):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    @staticmethod
-    def get_db_connection():
-        return pymysql.connect(
-            host=Config.MYSQL_HOST,
-            user=Config.MYSQL_USER,
-            password=Config.MYSQL_PASSWORD,
-            database=Config.MYSQL_DB,
-            cursorclass=pymysql.cursors.DictCursor
-        )
+    '''commented to use the automatic connecting to database with different ports.'''
+    # @staticmethod
+    # def get_db_connection():
+    #     return pymysql.connect(
+    #         host=Config.MYSQL_HOST,
+    #         user=Config.MYSQL_USER,
+    #         password=Config.MYSQL_PASSWORD,
+    #         database=Config.MYSQL_DB,
+    #         cursorclass=pymysql.cursors.DictCursor
+    #     )
 
     @staticmethod
     def get_by_id(user_id):
-        connection = User.get_db_connection()
+        # connection = User.get_db_connection()
+        #for the automated connetion:
+        connection = get_db_connection()
+
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT * FROM users WHERE id = %s AND is_active = TRUE", (user_id,))
@@ -47,7 +52,10 @@ class User(UserMixin):
 
     @staticmethod
     def get_by_email(email):
-        connection = User.get_db_connection()
+#         connection = User.get_db_connection()
+#for the automated connetion:
+        connection = get_db_connection()
+
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT * FROM users WHERE email = %s AND is_active = TRUE", (email,))
@@ -60,7 +68,10 @@ class User(UserMixin):
 
     @staticmethod
     def create(name, email, password, role):
-        connection = User.get_db_connection()
+#         connection = User.get_db_connection()
+#for the automated connetion:
+        connection = get_db_connection()
+
         try:
             with connection.cursor() as cursor:
                 password_hash = generate_password_hash(password)
@@ -75,7 +86,10 @@ class User(UserMixin):
 
     @staticmethod
     def update_password(email, new_password):
-        connection = User.get_db_connection()
+#         connection = User.get_db_connection()
+#for the automated connetion:
+        connection = get_db_connection()
+
         try:
             with connection.cursor() as cursor:
                 password_hash = generate_password_hash(new_password)
@@ -90,7 +104,10 @@ class User(UserMixin):
 
     @staticmethod
     def get_all_cashiers():
-        connection = User.get_db_connection()
+#         connection = User.get_db_connection()
+#for the automated connetion:
+        connection = get_db_connection()
+
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT * FROM users WHERE role = 'cashier' ORDER BY name")
@@ -100,7 +117,10 @@ class User(UserMixin):
 
     @staticmethod
     def toggle_active(user_id):
-        connection = User.get_db_connection()
+#         connection = User.get_db_connection()
+#for the automated connetion:
+        connection = get_db_connection()
+
         try:
             with connection.cursor() as cursor:
                 cursor.execute('''

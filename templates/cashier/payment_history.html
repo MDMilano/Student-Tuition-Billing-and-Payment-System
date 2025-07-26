@@ -26,7 +26,7 @@
     <div class="col-lg-3 col-md-6 mb-3">
         <div class="card stats-card">
             <div class="card-body text-center">
-                <div class="h4 mb-1">{{ total_payments or 342 }}</div>
+                <div class="h4 mb-1">{{ summary.total_payments or 0}}</div>
                 <div class="small text-uppercase fw-bold">Total Payments</div>
             </div>
         </div>
@@ -34,7 +34,7 @@
     <div class="col-lg-3 col-md-6 mb-3">
         <div class="card stats-card-secondary">
             <div class="card-body text-center">
-                <div class="h4 mb-1">₱{{ "{:,.2f}".format(total_amount or 2750890.00) }}</div>
+                <div class="h4 mb-1">₱{{ "{:,.2f}".format(summary.total_amount or 0.00) }}</div>
                 <div class="small text-uppercase fw-bold">Total Amount</div>
             </div>
         </div>
@@ -42,7 +42,7 @@
     <div class="col-lg-3 col-md-6 mb-3">
         <div class="card stats-card">
             <div class="card-body text-center">
-                <div class="h4 mb-1">₱{{ "{:,.2f}".format(todays_total or 45750.00) }}</div>
+                <div class="h4 mb-1">₱{{ "{:,.2f}".format(summary.todays_total or 0.00) }}</div>
                 <div class="small text-uppercase fw-bold">Today's Total</div>
             </div>
         </div>
@@ -50,7 +50,7 @@
     <div class="col-lg-3 col-md-6 mb-3">
         <div class="card stats-card-secondary">
             <div class="card-body text-center">
-                <div class="h4 mb-1">₱{{ "{:,.2f}".format(monthly_total or 567890.00) }}</div>
+                <div class="h4 mb-1">₱{{ "{:,.2f}".format(summary.monthly_total or 0.00) }}</div>
                 <div class="small text-uppercase fw-bold">This Month</div>
             </div>
         </div>
@@ -115,10 +115,10 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover mb-0" id="paymentTable">
+                    <table class="table table-hover mb-0 text-center align-middle" id="paymentTable">
                         <thead>
                             <tr>
-                                <th>Receipt #</th>
+                                <th>Reference No.</th>
                                 <th>Date & Time</th>
                                 <th>Student</th>
                                 <th>Course</th>
@@ -129,31 +129,23 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for payment in payment_history or [
-                                {'receipt': 'RCT-2025-001', 'datetime': '2025-06-30 14:30', 'student': 'John Doe', 'student_id': 'STU-2024-001', 'course': 'Web Development', 'amount': 12500.00, 'method': 'Cash', 'status': 'completed', 'reference': ''},
-                                {'receipt': 'RCT-2025-002', 'datetime': '2025-06-30 14:15', 'student': 'Jane Smith', 'student_id': 'STU-2024-002', 'course': 'Mobile Development', 'amount': 15000.00, 'method': 'Bank Transfer', 'status': 'completed', 'reference': 'BT-20250630-001'},
-                                {'receipt': 'RCT-2025-003', 'datetime': '2025-06-30 13:45', 'student': 'Mike Johnson', 'student_id': 'STU-2024-003', 'course': 'Data Science', 'amount': 8000.00, 'method': 'GCash', 'status': 'completed', 'reference': 'GC-789456123'},
-                                {'receipt': 'RCT-2025-004', 'datetime': '2025-06-30 13:30', 'student': 'Sarah Wilson', 'student_id': 'STU-2024-004', 'course': 'UI/UX Design', 'amount': 5000.00, 'method': 'Cash', 'status': 'completed', 'reference': ''},
-                                {'receipt': 'RCT-2025-005', 'datetime': '2025-06-30 12:45', 'student': 'David Brown', 'student_id': 'STU-2024-005', 'course': 'Cybersecurity', 'amount': 4250.00, 'method': 'Credit Card', 'status': 'pending', 'reference': 'CC-4532-****-1234'},
-                                {'receipt': 'RCT-2025-006', 'datetime': '2025-06-29 16:20', 'student': 'Lisa Garcia', 'student_id': 'STU-2024-006', 'course': 'Digital Marketing', 'amount': 10000.00, 'method': 'PayMaya', 'status': 'completed', 'reference': 'PM-987654321'},
-                                {'receipt': 'RCT-2025-007', 'datetime': '2025-06-29 15:10', 'student': 'Robert Chen', 'student_id': 'STU-2024-007', 'course': 'Machine Learning', 'amount': 18000.00, 'method': 'Bank Transfer', 'status': 'completed', 'reference': 'BT-20250629-005'},
-                                {'receipt': 'RCT-2025-008', 'datetime': '2025-06-29 14:30', 'student': 'Emily Davis', 'student_id': 'STU-2024-008', 'course': 'Web Development', 'amount': 7500.00, 'method': 'Cash', 'status': 'completed', 'reference': ''},
-                                {'receipt': 'RCT-2025-009', 'datetime': '2025-06-29 11:15', 'student': 'James Miller', 'student_id': 'STU-2024-009', 'course': 'Cloud Computing', 'amount': 13500.00, 'method': 'GCash', 'status': 'completed', 'reference': 'GC-456789012'},
-                                {'receipt': 'RCT-2025-010', 'datetime': '2025-06-28 16:45', 'student': 'Anna Taylor', 'student_id': 'STU-2024-010', 'course': 'DevOps', 'amount': 11000.00, 'method': 'Credit Card', 'status': 'failed', 'reference': 'CC-5678-****-9012'}
-                            ] %}
-                            <tr data-status="{{ payment.status }}" data-method="{{ payment.method }}" data-date="{{ payment.datetime[:10] }}">
+                            {% for payment in payment_history %}
+                            <tr class="payment-row"
+                            data-date="{{ payment.datetime.strftime('%Y-%m-%d') }}"
+                            data-method="{{ payment.method | lower }}"
+                            data-status="{{ payment.status | lower }}">
                                 <td>
-                                    <strong class="text-primary">{{ payment.receipt }}</strong>
+                                    <strong class="text-primary">{{ payment.reference or "— —" }}</strong>
                                 </td>
                                 <td>
-                                    <div>{{ payment.datetime[:10] }}</div>
-                                    <small class="text-muted">{{ payment.datetime[11:16] }}</small>
+                                    <div>{{ payment.datetime.strftime('%Y-%m-%d') }}    </div>
+                                    <small class="text-muted">{{ payment.datetime.strftime('%H:%M:%S') }}</small>
                                 </td>
                                 <td>
                                     <div><strong>{{ payment.student }}</strong></div>
                                     <small class="text-muted">{{ payment.student_id }}</small>
                                 </td>
-                                <td>{{ payment.course }}</td>
+                                <td>{{ payment.course or "— —"}}</td>
                                 <td><strong>₱{{ "{:,.2f}".format(payment.amount) }}</strong></td>
                                 <td>
                                     <span class="badge bg-light text-dark">
@@ -173,17 +165,17 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if payment.status == 'completed' %}
+                                    {% if payment.status == 'paid' %}
                                         <span class="badge bg-success">
-                                            <i class="bi bi-check-circle me-1"></i>Completed
+                                            <i class="bi bi-check-circle me-1"></i>Paid
                                         </span>
-                                    {% elif payment.status == 'pending' %}
-                                        <span class="badge bg-warning">
-                                            <i class="bi bi-hourglass-split me-1"></i>Pending
+                                    {% elif payment.status == 'partial' %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Partially Paid
                                         </span>
-                                    {% else %}
+                                    {% elif payment.status == 'unpaid' %}
                                         <span class="badge bg-danger">
-                                            <i class="bi bi-x-circle me-1"></i>Failed
+                                            <i class="bi bi-x-circle me-1"></i>Unpaid
                                         </span>
                                     {% endif %}
                                 </td>
@@ -211,18 +203,26 @@
             <div class="card-footer">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="text-muted">
-                        Showing <span id="showingStart">1</span> to <span id="showingEnd">10</span> of <span id="totalRecords">342</span> payments
+                        Showing <span id="showingStart">{{ offset + 1 }}</span>
+                        to <span id="showingEnd">{{ showing_end }}</span>
+                        of <span id="totalRecords">{{ total_records }}</span> payments
                     </div>
                     <nav>
-                        <ul class="pagination pagination-sm mb-0">
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" tabindex="-1">Previous</a>
+                        <ul class="pagination">
+                            {% set total_pages = (total_payments // per_page) + (1 if total_payments % per_page else 0) %}
+
+                            <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('cashier.payment_history_all', page=page-1, per_page=per_page) }}">Previous</a>
                             </li>
-                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                            <li class="page-item"><a class="page-link" href="#">2</a></li>
-                            <li class="page-item"><a class="page-link" href="#">3</a></li>
-                            <li class="page-item">
-                                <a class="page-link" href="#">Next</a>
+
+                            {% for p in range(1, total_pages + 1) %}
+                                <li class="page-item {% if p == page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('cashier.payment_history_all', page=p, per_page=per_page) }}">{{ p }}</a>
+                                </li>
+                            {% endfor %}
+
+                            <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('cashier.payment_history_all', page=page+1, per_page=per_page) }}">Next</a>
                             </li>
                         </ul>
                     </nav>
@@ -259,18 +259,16 @@
                                 <option value="">All Methods</option>
                                 <option value="Cash">Cash</option>
                                 <option value="Bank Transfer">Bank Transfer</option>
-                                <option value="GCash">GCash</option>
-                                <option value="PayMaya">PayMaya</option>
-                                <option value="Credit Card">Credit Card</option>
+                                <option value="E-Wallet">E-Wallet</option>
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Status</label>
                             <select class="form-select" id="statusFilter">
                                 <option value="">All Status</option>
-                                <option value="completed">Completed</option>
-                                <option value="pending">Pending</option>
-                                <option value="failed">Failed</option>
+                                <option value="paid">Paid</option>
+                                <option value="partial">Partially paid</option>
+                                <option value="unpaid">Unpaid</option>
                             </select>
                         </div>
                     </div>
@@ -288,15 +286,9 @@
                         <label class="form-label">Course</label>
                         <select class="form-select" id="courseFilter">
                             <option value="">All Courses</option>
-                            <option value="Web Development">Web Development</option>
-                            <option value="Mobile Development">Mobile Development</option>
-                            <option value="Data Science">Data Science</option>
-                            <option value="UI/UX Design">UI/UX Design</option>
-                            <option value="Cybersecurity">Cybersecurity</option>
-                            <option value="Digital Marketing">Digital Marketing</option>
-                            <option value="Machine Learning">Machine Learning</option>
-                            <option value="Cloud Computing">Cloud Computing</option>
-                            <option value="DevOps">DevOps</option>
+                            {% for course in courses %}
+                                <option value="{{ course.id }}">{{ course.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </form>
@@ -332,9 +324,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function filterPayments(filter) {
     const rows = document.querySelectorAll('#paymentTable tbody tr');
-    const today = new Date().toISOString().split('T')[0];
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toLocaleDateString('en-CA'); // format: YYYY-MM-DD
+
+    const weekAgo = new Date();
+    weekAgo.setDate(today.getDate() - 7);
+    const weekAgoStr = weekAgo.toLocaleDateString('en-CA');
+
+    const monthAgo = new Date();
+    monthAgo.setDate(today.getDate() - 30);
+    const monthAgoStr = monthAgo.toLocaleDateString('en-CA');
+
 
     rows.forEach(row => {
         const status = row.dataset.status;
@@ -347,19 +348,19 @@ function filterPayments(filter) {
                 show = true;
                 break;
             case 'today':
-                show = date === today;
-                break;
-            case 'week':
-                show = date >= weekAgo;
-                break;
-            case 'month':
-                show = date >= monthAgo;
-                break;
+            show = date === todayStr;
+            break;
+        case 'week':
+            show = date >= weekAgoStr;
+            break;
+        case 'month':
+            show = date >= monthAgoStr;
+            break;
             case 'pending':
                 show = status === 'pending';
                 break;
             case 'cash':
-                show = method === 'Cash';
+                show = method === 'cash';
                 break;
         }
 
@@ -400,8 +401,8 @@ function printReport() {
 }
 
 function exportToExcel() {
-    alert('Exporting payment history to Excel...');
-    // Implementation for Excel export
+    window.location.href = "/cashier/export/payments";
+
 }
 
 function clearFilters() {
@@ -434,11 +435,11 @@ function applyFilters() {
         if (dateTo && rowDate > dateTo) show = false;
         
         // Apply other filters
-        if (paymentMethod && rowMethod !== paymentMethod) show = false;
-        if (status && rowStatus !== status) show = false;
+        if (paymentMethod && rowMethod !== paymentMethod.toLowerCase()) show = false;
+        if (status && rowStatus !== status.toLowerCase()) show = false;
         if (minAmount && rowAmount < parseFloat(minAmount)) show = false;
         if (maxAmount && rowAmount > parseFloat(maxAmount)) show = false;
-        if (course && rowCourse !== course) show = false;
+        if (course && rowCourse.toLowerCase() !== course.toLowerCase()) show = false;
 
         row.style.display = show ? '' : 'none';
     });

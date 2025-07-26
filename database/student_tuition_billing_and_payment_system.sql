@@ -122,6 +122,24 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+/*Table structure for table `billings` */
+
+DROP TABLE IF EXISTS `billings`;
+
+CREATE TABLE `billings` (
+  `billing_id` INT NOT NULL AUTO_INCREMENT,
+  `student_id` INT NOT NULL,
+  `billing_term` VARCHAR(50) DEFAULT NULL,  -- e.g., '1st Sem AY 2025-2026'
+  `total_due` DECIMAL(10,2) NOT NULL,       -- total expected payment
+  `balance` DECIMAL(10,2) NOT NULL,         -- remaining unpaid amount
+  `status` ENUM('unpaid', 'partial', 'paid') DEFAULT 'unpaid',
+  `billing_date` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`billing_id`),
+  KEY `student_id` (`student_id`),
+  CONSTRAINT `billings_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
 /*Data for the table `users` */
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
