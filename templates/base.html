@@ -259,7 +259,7 @@
                         {{ current_user.user_name or 'User' }}
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('admin.profile') }}">
+                        <li><a class="dropdown-item" href="{{ url_for(current_user.role + '.profile') }}">
                             <i class="bi bi-person me-2"></i>Profile
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
