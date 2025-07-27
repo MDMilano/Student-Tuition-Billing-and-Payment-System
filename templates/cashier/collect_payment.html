@@ -355,7 +355,7 @@ function selectStudent(id, sid, name, course = '— —', totalFee = 0.00, paidA
     document.getElementById('paymentMethod').disabled = false;
 
     // Update search field
-    document.getElementById('studentSearch').value = `${id} - ${name}`;
+    document.getElementById('studentSearch').value = `${sid} - ${name}`;
 }
 
 function handlePaymentMethodChange() {

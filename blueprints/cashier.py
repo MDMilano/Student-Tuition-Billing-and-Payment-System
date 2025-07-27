@@ -683,7 +683,7 @@ def payment_history_all():
                     p.created_at AS datetime,
                     CONCAT(s.first_name, ' ', s.last_name) AS student,
                     s.student_id AS student_number,
-                    c.code AS course,
+                    c.name AS course,
                     p.amount_paid AS amount,
                     p.payment_method AS method,
                     CASE 
