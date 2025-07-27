@@ -75,9 +75,9 @@
                     <button type="button" class="btn btn-outline-warning filter-btn" data-filter="month">
                         This Month
                     </button>
-<!--                    <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="pending">-->
-<!--                        Pending-->
-<!--                    </button>-->
+                    <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="pending">
+                        Pending
+                    </button>
                     <button type="button" class="btn btn-outline-danger filter-btn" data-filter="cash">
                         Cash Only
                     </button>
@@ -118,7 +118,7 @@
                     <table class="table table-hover mb-0 text-center align-middle" id="paymentTable">
                         <thead>
                             <tr>
-<!--                                <th>Reference No.</th>-->
+                                <th>Reference No.</th>
                                 <th>Date & Time</th>
                                 <th>Student</th>
                                 <th>Course</th>
@@ -134,9 +134,9 @@
                             data-date="{{ payment.datetime.strftime('%Y-%m-%d') }}"
                             data-method="{{ payment.method | lower }}"
                             data-status="{{ payment.status | lower }}">
-<!--                                <td>-->
-<!--                                    <strong class="text-primary">{{ payment.reference or "— —" }}</strong>-->
-<!--                                </td>-->
+                                <td>
+                                    <strong class="text-primary">{{ payment.reference or "— —" }}</strong>
+                                </td>
                                 <td>
                                     <div>{{ payment.datetime.strftime('%Y-%m-%d') }}    </div>
                                     <small class="text-muted">{{ payment.datetime.strftime('%H:%M:%S') }}</small>
