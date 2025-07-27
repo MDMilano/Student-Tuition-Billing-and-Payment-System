@@ -19,7 +19,6 @@ cashier_bp = Blueprint('cashier', __name__)
 @login_required
 @cashier_required
 def dashboard():
-    # connection = User.get_db_connection()
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
@@ -53,20 +52,6 @@ def dashboard():
                 else:
                     unpaid_count += 1
 
-
-
-
-            # Recent payments collected by this cashier
-            # cursor.execute('''
-            #     SELECT p.*, s.first_name, s.last_name, s.student_id
-            #     FROM payments p
-            #     JOIN students s ON p.student_id = s.id
-            #     WHERE p.collected_by = %s
-            #     ORDER BY p.created_at DESC
-            #     LIMIT 10
-            # ''', (current_user.id,))
-            # cashier_recent_payments = cursor.fetchall()
-
             # Total payments collected today by this cashier
             cursor.execute('''
                 SELECT 
@@ -80,22 +65,20 @@ def dashboard():
             today_stats = cursor.fetchone()
 
             # Total pending amount (partial + unpaid)
-            #added the pending count
             cursor.execute('''
                 SELECT 
-                    COALESCE(SUM(sb.balance), 0.00) AS total_pending_amount,
+                    COALESCE(SUM(c.price) - SUM(p.amount_paid), 0.00) AS total_pending_amount,
                     COUNT(*) AS pending_count
-                FROM student_balances sb
-                JOIN payments p ON p.billing_id = sb.id
-                WHERE sb.status IN ('unpaid', 'partial')
-                  AND p.collected_by = %s
-            ''', (current_user.id,))
-
+                FROM students s
+                JOIN courses c ON s.course_id = c.id
+                LEFT JOIN payments p ON s.id = p.student_id
+                WHERE s.is_active = TRUE
+                GROUP BY s.id
+                HAVING SUM(c.price) > COALESCE(SUM(p.amount_paid), 0)
+            ''')
             pending_stats = cursor.fetchone()
 
-
-
-            #for displaying monthly
+            # For displaying monthly
             cursor.execute('''
                 SELECT 
                     COALESCE(SUM(amount_paid), 0.00) AS total_monthly_collected,
@@ -107,16 +90,12 @@ def dashboard():
             ''', (current_user.id,))
             monthly_stats = cursor.fetchone()
 
-
-
-
-
-            #for the payment method to display dynamixcally
+            # For the payment method to display dynamically
             cursor.execute("""
-                    SELECT payment_method, COUNT(*) AS count
-                    FROM payments
-                    GROUP BY payment_method
-                """)
+                SELECT payment_method, COUNT(*) AS count
+                FROM payments
+                GROUP BY payment_method
+            """)
             results = cursor.fetchall()
 
             # Default counts
@@ -147,23 +126,28 @@ def dashboard():
                 'bank': round((data['bank'] / total) * 100) if total else 0,
             }
 
-
-            #for recent payments
+            # For recent payments
+            # For recent payments
             cursor.execute('''
                 SELECT 
                     p.created_at AS time,
                     CONCAT(s.first_name, ' ', s.last_name) AS student,
                     p.amount_paid AS amount,
                     p.payment_method AS method,
-                    sb.status
+                    CASE 
+                        WHEN p.amount_paid >= c.price THEN 'paid'
+                        WHEN p.amount_paid > 0 THEN 'partial'
+                        ELSE 'unpaid'
+                    END AS status
                 FROM payments p
                 JOIN students s ON p.student_id = s.id
-                LEFT JOIN student_balances sb ON sb.student_id = s.id
+                JOIN courses c ON s.course_id = c.id
                 WHERE p.collected_by = %s
                 ORDER BY p.created_at DESC
                 LIMIT 5
             ''', (current_user.id,))
             recent_payments = cursor.fetchall()
+
 
     finally:
         connection.close()
@@ -174,17 +158,18 @@ def dashboard():
         'pending_payments': pending_stats['pending_count'],
         'pending_amount': pending_stats['total_pending_amount'],
         'students_handled': total_students,
-        'monthly_collections' : monthly_stats['total_monthly_collected'],
-        'monthly_payments' : monthly_stats['monthly_payment_count']
+        'monthly_collections': monthly_stats['total_monthly_collected'],
+        'monthly_payments': monthly_stats['monthly_payment_count']
     }
 
     return render_template('cashier/dashboard.html',
                            stats=stats,
                            paid_count=paid_count,
-                           # partial_count=partial_count,
-                           # unpaid_count=unpaid_count,
+                           partial_count=partial_count,
+                           unpaid_count=unpaid_count,
                            recent_payments=recent_payments,
                            payment_data=percentages)
+
 
 
 @cashier_bp.route('/students')
@@ -201,20 +186,22 @@ def students():
             # Base query
             query = '''
                 SELECT 
-                    s.*,
+                    s.id,
+                    s.student_id AS sid,
+                    CONCAT(s.first_name, ' ', s.last_name) AS name,
                     c.name AS course_name,
-                    c.price AS total_fee,
-                    sb.total_due,
-                    sb.total_paid,
-                    sb.balance,
-                    sb.status,
-                    COALESCE(SUM(p.amount_paid), 0) AS amount_paid,
-                    (COALESCE(sb.total_due, 0) - COALESCE(SUM(p.amount_paid), 0)) AS adjusted_balance,
+                    c.price AS total_fee,  -- Total due is the course price
+                    COALESCE(SUM(p.amount_paid), 0) AS total_paid,  -- Total paid from payments
+                    (c.price - COALESCE(SUM(p.amount_paid), 0)) AS balance,  -- Calculate balance
                     latest_payment.latest_payment_date,
-                    latest_payment.latest_payment_amount
+                    latest_payment.latest_payment_amount,
+                    CASE 
+                        WHEN COALESCE(SUM(p.amount_paid), 0) >= c.price THEN 'paid'
+                        WHEN COALESCE(SUM(p.amount_paid), 0) > 0 THEN 'partial'
+                        ELSE 'unpaid'
+                    END AS status  -- Determine payment status
                 FROM students s
                 LEFT JOIN courses c ON s.course_id = c.id
-                LEFT JOIN student_balances sb ON sb.student_id = s.id
                 LEFT JOIN payments p ON s.id = p.student_id
                 LEFT JOIN (
                     SELECT 
@@ -234,8 +221,6 @@ def students():
                     ) AS latest ON p.student_id = latest.student_id AND p.created_at = latest.max_date
                 ) AS latest_payment ON latest_payment.student_id = s.id
                 WHERE s.is_active = TRUE
-                GROUP BY 
-                    s.id, c.name, c.price, sb.total_due, sb.total_paid, sb.balance, sb.status, latest_payment.latest_payment_date, latest_payment.latest_payment_amount
             '''
 
             params = []
@@ -254,36 +239,32 @@ def students():
             if status_filter:
                 query += " HAVING "
                 if status_filter == 'paid':
-                    query += "amount_paid >= c.price"
+                    query += " total_paid >= total_fee"
                 elif status_filter == 'partial':
-                    query += "amount_paid > 0 AND amount_paid < c.price"
+                    query += " total_paid > 0 AND total_paid < total_fee"
                 elif status_filter == 'unpaid':
-                    query += "amount_paid = 0"
+                    query += " total_paid = 0"
 
-            # Final ORDER BY clause
-            query += " ORDER BY s.created_at DESC"
+            # Group by clause
+            query += '''
+                GROUP BY 
+                    s.id, c.name, c.price, latest_payment.latest_payment_date, latest_payment.latest_payment_amount
+                ORDER BY s.created_at DESC
+            '''
 
             cursor.execute(query, params)
             students = cursor.fetchall()
 
             # Process students data
             for student in students:
-                if student['status']:
-                    if student['status'] == 'paid':
-                        student['status_display'] = 'Paid'
-                        student['status_class'] = 'success'
-                    elif student['status'] == 'partial':
-                        student['status_display'] = 'Partial'
-                        student['status_class'] = 'warning'
-                    else:
-                        student['status_display'] = 'Unpaid'
-                        student['status_class'] = 'danger'
+                # The status is already calculated in the SQL query
+                student['status_display'] = student['status']  # Use the status from the query
+                if student['status'] == 'paid':
+                    student['status_class'] = 'success'
+                elif student['status'] == 'partial':
+                    student['status_class'] = 'warning'
                 else:
-                    student['status_display'] = 'No Billing'
-                    student['status_class'] = 'secondary'
-                    student['total_due'] = 0
-                    student['total_paid'] = 0
-                    student['balance'] = 0
+                    student['status_class'] = 'danger'
 
             # Get courses for filter
             cursor.execute("SELECT * FROM courses WHERE is_active = TRUE ORDER BY name")
@@ -292,13 +273,22 @@ def students():
             # Get summary counts
             cursor.execute('''
                 SELECT 
-                    SUM(CASE WHEN sb.status = 'paid' THEN 1 ELSE 0 END) as fully_paid,
-                    SUM(CASE WHEN sb.status = 'partial' THEN 1 ELSE 0 END) as partially_paid,
-                    SUM(CASE WHEN sb.status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
-                    COUNT(DISTINCT s.id) as total_students
-                FROM students s
-                LEFT JOIN student_balances sb ON s.id = sb.student_id
-                WHERE s.is_active = TRUE
+                    SUM(CASE WHEN total_paid >= price THEN 1 ELSE 0 END) as fully_paid,
+                    SUM(CASE WHEN total_paid > 0 AND total_paid < price THEN 1 ELSE 0 END) as partially_paid,
+                    SUM(CASE WHEN total_paid = 0 THEN 1 ELSE 0 END) as unpaid,
+                    COUNT(DISTINCT id) as total_students
+                FROM (
+                    SELECT 
+                        s.id,
+                        s.student_id,
+                        COALESCE(SUM(p.amount_paid), 0) AS total_paid,
+                        c.price
+                    FROM students s
+                    LEFT JOIN courses c ON s.course_id = c.id
+                    LEFT JOIN payments p ON s.id = p.student_id
+                    WHERE s.is_active = TRUE
+                    GROUP BY s.id, c.price
+                ) AS student_totals
             ''')
             summary = cursor.fetchone()
 
@@ -317,6 +307,9 @@ def students():
 
 
 
+
+
+
 @cashier_bp.route('/view-collect-payment', methods=['GET', 'POST'])
 @login_required
 @cashier_required
@@ -327,21 +320,27 @@ def view_collect_payment():
         with connection.cursor() as cursor:
             # Get the 5 most recently added students (ordered by ID or a timestamp column)
             cursor.execute('''
-                    SELECT 
-                        s.id, 
-                        s.student_id AS sid, 
-                        CONCAT(s.first_name, ' ', s.last_name) AS name,
-                        c.name AS course,
-                        sb.total_due AS totalFee,
-                        sb.total_paid AS paidAmount,
-                        sb.balance
-                    FROM students s
-                    LEFT JOIN courses c ON s.course_id = c.id
-                    LEFT JOIN student_balances sb ON sb.student_id = s.id
-                    ORDER BY s.id DESC
-                    LIMIT 5
-                ''')
+                SELECT 
+                    s.id, 
+                    s.student_id AS sid, 
+                    CONCAT(s.first_name, ' ', s.last_name) AS name,
+                    c.name AS course,
+                    c.price AS totalFee,  -- Total due is the course price
+                    COALESCE(SUM(p.amount_paid), 0) AS paidAmount  -- Total paid from payments
+                FROM students s
+                LEFT JOIN courses c ON s.course_id = c.id
+                LEFT JOIN payments p ON s.id = p.student_id
+                WHERE s.is_active = TRUE  -- Ensure only active students are considered
+                GROUP BY s.id, c.id  -- Group by student and course
+                ORDER BY s.id DESC
+                LIMIT 5
+            ''')
             recent_students = cursor.fetchall()
+
+            # Calculate balance for each student
+            for student in recent_students:
+                student['balance'] = student['totalFee'] - student['paidAmount']  # Calculate balance
+
     except Exception as e:
         flash(f'Error: {str(e)}', 'error')
 
@@ -350,6 +349,7 @@ def view_collect_payment():
 
     return render_template('cashier/collect_payment.html',
                            recent_students=recent_students)
+
 
 
 @cashier_bp.route('/api/search-student', methods=['GET'])
@@ -367,11 +367,13 @@ def api_search_student():
             cursor.execute('''
                 SELECT s.id, s.student_id, CONCAT(s.first_name, ' ', s.last_name) AS name,
                        c.name AS course,
-                       sb.total_due, sb.total_paid, sb.balance
+                       c.price AS total_due,  -- Total due is the course price
+                       COALESCE(SUM(p.amount_paid), 0) AS total_paid  -- Total paid from payments
                 FROM students s
                 LEFT JOIN courses c ON s.course_id = c.id
-                LEFT JOIN student_balances sb ON sb.student_id = s.id
+                LEFT JOIN payments p ON s.id = p.student_id
                 WHERE s.student_id LIKE %s OR CONCAT(s.first_name, ' ', s.last_name) LIKE %s
+                GROUP BY s.id, c.id  -- Group by student and course
                 ORDER BY s.id DESC
                 LIMIT 1
             ''', (f'%{query}%', f'%{query}%'))
@@ -380,19 +382,25 @@ def api_search_student():
             print(student)
 
             if student:
+                # Calculate balance
+                total_due = student['total_due']
+                total_paid = student['total_paid']
+                balance = total_due - total_paid  # Calculate balance
+
                 return jsonify({
                     'id': student['id'],
                     'sid': student['student_id'],
                     'name': student['name'],
                     'course': student['course'],
-                    'totalFee': float(student['total_due'] or 0),
-                    'paidAmount': float(student['total_paid'] or 0),
-                    'balance': float(student['balance'] or 0)
+                    'totalFee': float(total_due or 0),
+                    'paidAmount': float(total_paid or 0),
+                    'balance': float(balance or 0)  # Return calculated balance
                 })
             else:
                 return jsonify({'error': 'Student not found'}), 404
     finally:
         connection.close()
+
 
 
 @cashier_bp.route('/collect-payment/<int:student_id>', methods=['GET', 'POST'])
@@ -469,23 +477,18 @@ def collect_payment(student_id):
     # GET request - show payment form
     try:
         with connection.cursor() as cursor:
-            # Get student info with balances
+            # Get student info with course details
             cursor.execute('''
                 SELECT 
                     s.*,
                     c.name as course_name,
-                    sb.id as billing_id,
-                    sb.total_due,
-                    sb.total_paid,
-                    sb.balance,
-                    sb.status,
-                    sb.semester,
-                    sb.from_year,
-                    sb.to_year
+                    SUM(c.price) as total_due,  -- Total due is the course price
+                    COALESCE(SUM(p.amount_paid), 0) as total_paid  -- Total paid from payments
                 FROM students s
                 LEFT JOIN courses c ON s.course_id = c.id
-                LEFT JOIN student_balances sb ON s.id = sb.student_id
+                LEFT JOIN payments p ON s.id = p.student_id
                 WHERE s.id = %s AND s.is_active = TRUE
+                GROUP BY s.id, c.id  -- Group by student and course
             ''', (student_id,))
 
             student_data = cursor.fetchall()
@@ -493,22 +496,26 @@ def collect_payment(student_id):
                 flash('Student not found.', 'error')
                 return redirect(url_for('cashier.students'))
 
-            # Group by student and collect all billing records
+            # Get the student data
             student = student_data[0]
-            student['billings'] = []
 
-            for row in student_data:
-                if row['billing_id']:
-                    student['billings'].append({
-                        'id': row['billing_id'],
-                        'semester': row['semester'],
-                        'from_year': row['from_year'],
-                        'to_year': row['to_year'],
-                        'total_due': row['total_due'],
-                        'total_paid': row['total_paid'],
-                        'balance': row['balance'],
-                        'status': row['status']
-                    })
+            # Calculate balance
+            total_due = student['total_due']
+            total_paid = student['total_paid']
+            balance = total_due - total_paid
+            status = 'unpaid' if total_paid == 0 else 'paid' if total_paid >= total_due else 'partial'
+
+            # Add billing information to student data
+            student['billings'] = [{
+                'semester': '1st',  # You can set this based on your logic
+                'from_year': 2024,  # Replace with actual year logic
+                'to_year': 2025,  # Replace with actual year logic
+                'total_fee': total_due,
+                'total_paid': total_paid,
+                'balance': balance,
+                'status': status
+            }]
+
     finally:
         connection.close()
 
@@ -577,11 +584,14 @@ def export_payments():
                     c.name AS course,
                     p.amount_paid AS amount,
                     p.payment_method AS method,
-                    sb.status AS status
+                    CASE 
+                        WHEN p.amount_paid >= c.price THEN 'paid'
+                        WHEN p.amount_paid > 0 THEN 'partial'
+                        ELSE 'unpaid'
+                    END AS status
                 FROM payments p
                 JOIN students s ON p.student_id = s.id
                 LEFT JOIN courses c ON s.course_id = c.id
-                LEFT JOIN student_balances sb ON sb.id = p.billing_id
                 ORDER BY p.created_at DESC
             """)
             payments = cursor.fetchall()
@@ -609,6 +619,7 @@ def export_payments():
 
 
 
+
 @cashier_bp.route('/payment-history-all')
 @login_required
 @cashier_required
@@ -616,11 +627,10 @@ def payment_history_all():
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            #pagination
+            # Pagination
             page = request.args.get('page', default=1, type=int)
             per_page = request.args.get('per_page', default=25, type=int)
             offset = (page - 1) * per_page
-
 
             # Total number of payments
             cursor.execute("SELECT COUNT(*) as total_payments FROM payments")
@@ -632,33 +642,22 @@ def payment_history_all():
 
             # Today's total amount
             cursor.execute("""
-                           SELECT COALESCE(SUM(amount_paid), 0.00) as todays_total
-                           FROM payments
-                           WHERE DATE(created_at) = CURDATE()
-                       """)
+                SELECT COALESCE(SUM(amount_paid), 0.00) as todays_total
+                FROM payments
+                WHERE DATE(created_at) = CURDATE()
+            """)
             todays_total = cursor.fetchone()['todays_total']
 
             # Monthly total amount
             cursor.execute("""
-                           SELECT COALESCE(SUM(amount_paid), 0.00) as monthly_total
-                           FROM payments
-                           WHERE created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                             AND created_at < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
-                       """)
+                SELECT COALESCE(SUM(amount_paid), 0.00) as monthly_total
+                FROM payments
+                WHERE created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                  AND created_at < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
+            """)
             monthly_total = cursor.fetchone()['monthly_total']
 
-
-
             # Get all payment history (regardless of student)
-            cursor.execute('''
-                SELECT p.*, u.name AS collected_by_name, s.first_name, s.last_name
-                FROM payments p
-                JOIN users u ON p.collected_by = u.id
-                JOIN students s ON p.student_id = s.id
-                ORDER BY p.payment_date DESC, p.created_at DESC
-            ''')
-            payments = cursor.fetchall()
-
             cursor.execute('''
                 SELECT 
                     p.id,
@@ -668,22 +667,23 @@ def payment_history_all():
                     c.code AS course,
                     p.amount_paid AS amount,
                     p.payment_method AS method,
-                    sb.status AS status,
+                    CASE 
+                        WHEN p.amount_paid >= c.price THEN 'paid'
+                        WHEN p.amount_paid > 0 THEN 'partial'
+                        ELSE 'unpaid'
+                    END AS status,
                     p.reference_number AS reference,
                     p.notes,
                     u.name AS collected_by
                 FROM payments p
                 JOIN students s ON p.student_id = s.id
                 LEFT JOIN courses c ON s.course_id = c.id
-                LEFT JOIN student_balances sb ON sb.id = p.billing_id
                 LEFT JOIN users u ON p.collected_by = u.id
                 ORDER BY p.created_at DESC
                 LIMIT %s OFFSET %s
             ''', (per_page, offset))
             payment_history = cursor.fetchall()
 
-
-            #courses:
             # Get distinct active courses
             cursor.execute("SELECT id, name FROM courses WHERE is_active = TRUE ORDER BY name")
             courses = cursor.fetchall()
@@ -692,6 +692,7 @@ def payment_history_all():
 
     finally:
         connection.close()
+
     summary = {
         'total_payments': total_payments,
         'total_amount': total_amount,
@@ -707,7 +708,8 @@ def payment_history_all():
                            per_page=per_page,
                            offset=offset,
                            total_payments=total_payments,
-                           showing_end=showing_end,)
+                           showing_end=showing_end)
+
 
 
 @cashier_bp.route('/profile')
