@@ -189,23 +189,24 @@ def students():
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            # Base query
+            # Build the main query
             query = '''
                 SELECT 
                     s.id,
                     s.student_id AS sid,
                     CONCAT(s.first_name, ' ', s.last_name) AS name,
                     c.name AS course_name,
-                    c.price AS total_fee,  -- Total due is the course price
-                    COALESCE(SUM(p.amount_paid), 0) AS total_paid,  -- Total paid from payments
-                    (c.price - COALESCE(SUM(p.amount_paid), 0)) AS balance,  -- Calculate balance
+                    COALESCE(c.price, 0) AS total_fee,
+                    COALESCE(SUM(p.amount_paid), 0) AS total_paid,
+                    GREATEST(0, COALESCE(c.price, 0) - COALESCE(SUM(p.amount_paid), 0)) AS balance,
                     latest_payment.latest_payment_date,
                     latest_payment.latest_payment_amount,
                     CASE 
-                        WHEN COALESCE(SUM(p.amount_paid), 0) >= c.price THEN 'paid'
+                        WHEN COALESCE(c.price, 0) = 0 THEN 'no_billing'
+                        WHEN COALESCE(SUM(p.amount_paid), 0) >= COALESCE(c.price, 0) THEN 'paid'
                         WHEN COALESCE(SUM(p.amount_paid), 0) > 0 THEN 'partial'
                         ELSE 'unpaid'
-                    END AS status  -- Determine payment status
+                    END AS status
                 FROM students s
                 LEFT JOIN courses c ON s.course_id = c.id
                 LEFT JOIN payments p ON s.id = p.student_id
@@ -237,38 +238,48 @@ def students():
                 search_param = f"%{search_query}%"
                 params.extend([search_param, search_param, search_param, search_param])
 
+            # Add course filter
             if course_filter:
                 query += " AND c.id = %s"
                 params.append(course_filter)
 
-            # Add HAVING clause based on status filter
-            if status_filter:
-                query += " HAVING "
-                if status_filter == 'paid':
-                    query += " total_paid >= total_fee"
-                elif status_filter == 'partial':
-                    query += " total_paid > 0 AND total_paid < total_fee"
-                elif status_filter == 'unpaid':
-                    query += " total_paid = 0"
-
             # Group by clause
             query += '''
                 GROUP BY 
-                    s.id, c.name, c.price, latest_payment.latest_payment_date, latest_payment.latest_payment_amount
-                ORDER BY s.created_at DESC
+                    s.id, s.student_id, s.first_name, s.last_name, c.name, c.price, 
+                    latest_payment.latest_payment_date, latest_payment.latest_payment_amount
             '''
+
+            # Add status filter using HAVING clause (this is the correct approach for aggregate functions)
+            if status_filter:
+                if status_filter == 'paid':
+                    query += " HAVING COALESCE(SUM(p.amount_paid), 0) >= COALESCE(c.price, 0) AND COALESCE(c.price, 0) > 0"
+                elif status_filter == 'partial':
+                    query += " HAVING COALESCE(SUM(p.amount_paid), 0) > 0 AND COALESCE(SUM(p.amount_paid), 0) < COALESCE(c.price, 0) AND COALESCE(c.price, 0) > 0"
+                elif status_filter == 'unpaid':
+                    query += " HAVING COALESCE(SUM(p.amount_paid), 0) = 0 AND COALESCE(c.price, 0) > 0"
+
+            # Add final ordering
+            query += " ORDER BY s.created_at DESC"
+
+            print(f"Executing query: {query}")
+            print(f"With parameters: {params}")
 
             cursor.execute(query, params)
             students = cursor.fetchall()
 
+            print(f"Found {len(students)} students")
+
             # Process students data
             for student in students:
-                # The status is already calculated in the SQL query
-                student['status_display'] = student['status']  # Use the status from the query
+                # Add display properties
+                student['status_display'] = student['status']
                 if student['status'] == 'paid':
                     student['status_class'] = 'success'
                 elif student['status'] == 'partial':
                     student['status_class'] = 'warning'
+                elif student['status'] == 'no_billing':
+                    student['status_class'] = 'secondary'
                 else:
                     student['status_class'] = 'danger'
 
@@ -276,28 +287,68 @@ def students():
             cursor.execute("SELECT * FROM courses WHERE is_active = TRUE ORDER BY name")
             courses = cursor.fetchall()
 
-            # Get summary counts
-            cursor.execute('''
+            # Get summary counts with the same logic
+            summary_query = '''
                 SELECT 
-                    SUM(CASE WHEN total_paid >= price THEN 1 ELSE 0 END) as fully_paid,
-                    SUM(CASE WHEN total_paid > 0 AND total_paid < price THEN 1 ELSE 0 END) as partially_paid,
-                    SUM(CASE WHEN total_paid = 0 THEN 1 ELSE 0 END) as unpaid,
-                    COUNT(DISTINCT id) as total_students
+                    SUM(CASE 
+                        WHEN COALESCE(c.price, 0) > 0 AND COALESCE(total_paid, 0) >= COALESCE(c.price, 0) THEN 1 
+                        ELSE 0 
+                    END) as fully_paid,
+                    SUM(CASE 
+                        WHEN COALESCE(c.price, 0) > 0 AND COALESCE(total_paid, 0) > 0 AND COALESCE(total_paid, 0) < COALESCE(c.price, 0) THEN 1 
+                        ELSE 0 
+                    END) as partially_paid,
+                    SUM(CASE 
+                        WHEN COALESCE(c.price, 0) > 0 AND COALESCE(total_paid, 0) = 0 THEN 1 
+                        ELSE 0 
+                    END) as unpaid,
+                    COUNT(*) as total_students
                 FROM (
                     SELECT 
                         s.id,
-                        s.student_id,
                         COALESCE(SUM(p.amount_paid), 0) AS total_paid,
-                        c.price
+                        COALESCE(c.price, 0) AS price
                     FROM students s
                     LEFT JOIN courses c ON s.course_id = c.id
                     LEFT JOIN payments p ON s.id = p.student_id
                     WHERE s.is_active = TRUE
                     GROUP BY s.id, c.price
                 ) AS student_totals
-            ''')
-            summary = cursor.fetchone()
+                LEFT JOIN students s ON student_totals.id = s.id
+                LEFT JOIN courses c ON s.course_id = c.id
+            '''
 
+            cursor.execute(summary_query)
+            summary_result = cursor.fetchone()
+
+            # Ensure summary values are not None
+            if summary_result:
+                summary = {
+                    'fully_paid': summary_result.get('fully_paid', 0) or 0,
+                    'partially_paid': summary_result.get('partially_paid', 0) or 0,
+                    'unpaid': summary_result.get('unpaid', 0) or 0,
+                    'total_students': summary_result.get('total_students', 0) or 0
+                }
+            else:
+                summary = {
+                    'fully_paid': 0,
+                    'partially_paid': 0,
+                    'unpaid': 0,
+                    'total_students': 0
+                }
+
+    except Exception as e:
+        print(f"Database error: {e}")
+        import traceback
+        traceback.print_exc()
+        students = []
+        courses = []
+        summary = {
+            'fully_paid': 0,
+            'partially_paid': 0,
+            'unpaid': 0,
+            'total_students': 0
+        }
     finally:
         connection.close()
 
@@ -309,11 +360,6 @@ def students():
                            search_query=search_query,
                            summary=summary,
                            total_students=len(students))
-
-
-
-
-
 
 
 @cashier_bp.route('/view-collect-payment', methods=['GET', 'POST'])

@@ -9,7 +9,7 @@ def send_otp_email(email, otp):
         msg = MIMEMultipart()
         msg['From'] = Config.MAIL_USERNAME
         msg['To'] = email
-        msg['Subject'] = "Password Reset OTP - Student Billing System"
+        msg['Subject'] = "Password Reset OTP - Student Tuition Billing and Payment System"
 
         # Email body
         body = f'''
@@ -17,7 +17,7 @@ def send_otp_email(email, otp):
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background: linear-gradient(135deg, #4dd0e1 0%, #26c6da 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                    <h1 style="color: white; margin: 0;">Student Billing System</h1>
+                    <h1 style="color: white; margin: 0;">Student Tuition Billing and Payment System</h1>
                     <p style="color: white; margin: 10px 0 0 0;">Password Reset Request</p>
                 </div>
 
@@ -42,7 +42,7 @@ def send_otp_email(email, otp):
 
                     <p style="font-size: 12px; color: #666; text-align: center;">
                         This is an automated email. Please do not reply to this message.<br>
-                        © 2025 Student Billing System
+                        © 2025 Student Tuition Billing and Payment System
                     </p>
                 </div>
             </div>
@@ -74,7 +74,7 @@ def send_login_credentials_email(name, email, temporary_password):
         msg = MIMEMultipart()
         msg['From'] = Config.MAIL_USERNAME
         msg['To'] = email
-        msg['Subject'] = "Welcome to Student Billing System - Login Credentials"
+        msg['Subject'] = "Welcome to Student Tuition Billing and Payment System - Login Credentials"
 
         # Email body
         body = f'''
@@ -82,13 +82,13 @@ def send_login_credentials_email(name, email, temporary_password):
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background: linear-gradient(135deg, #4dd0e1 0%, #26c6da 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                    <h1 style="color: white; margin: 0;">Student Billing System</h1>
+                    <h1 style="color: white; margin: 0;">Student Tuition Billing and Payment System</h1>
                     <p style="color: white; margin: 10px 0 0 0;">Welcome to the Team!</p>
                 </div>
 
                 <div style="background: white; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 10px 10px;">
                     <p>Hello <strong>{name}</strong>,</p>
-                    <p>Welcome to the Student Billing System! Your cashier account has been successfully created. Below are your login credentials:</p>
+                    <p>Welcome to the Student Tuition Billing and Payment System! Your cashier account has been successfully created. Below are your login credentials:</p>
 
                     <div style="text-align: center; margin: 30px 0;">
                         <div style="background: #f8f9fa; border: 2px dashed #4dd0e1; padding: 20px; border-radius: 10px; display: inline-block;">
@@ -124,7 +124,7 @@ def send_login_credentials_email(name, email, temporary_password):
                     <p style="font-size: 12px; color: #666; text-align: center;">
                         This is an automated email. Please do not reply to this message.<br>
                         If you have any questions, please contact your system administrator.<br>
-                        © 2025 Student Billing System
+                        © 2025 Student Tuition Billing and Payment System
                     </p>
                 </div>
             </div>

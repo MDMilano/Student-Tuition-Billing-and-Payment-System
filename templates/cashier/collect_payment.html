@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Collect Payment - Student Tuition System{% endblock %}
+{% block title %}Collect Payment - Student Tuition Billing and Payment System{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -122,15 +122,14 @@
                 </div>
 
                 <!-- Payment Form -->
-<!--                {# <form id="paymentForm" action="{{ url_for('cashier.collect_payment') }}" method="POST"> #}-->
                 <form id="paymentForm" action="" method="POST">
                     <input type="hidden" id="selectedStudentId" name="student_id" value="">
+                    <!-- ✅ Hidden input to store selected student ID -->
+                    <input type="hidden" id="studId" name="student_id">
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="paymentAmount" class="form-label">Payment Amount <span class="text-danger">*</span></label>
-                            <!-- ✅ Hidden input to store selected student ID -->
-                            <input type="hidden" id="studId" name="student_id">
                             <div class="input-group">
                                 <span class="input-group-text">₱</span>
                                 <input type="number" class="form-control" id="paymentAmount" name="amount"
@@ -149,7 +148,6 @@
                             </select>
                         </div>
                     </div>
-
 
                     <div class="mb-3">
                         <label for="paymentNotes" class="form-label">Notes (Optional)</label>
@@ -323,7 +321,6 @@ function searchStudent() {
         });
 }
 
-
 function selectStudent(id, sid, name, course = '— —', totalFee = 0.00, paidAmount = 0.00, balance = 0.00) {
     selectedStudentData = {
         id: id,
@@ -336,8 +333,14 @@ function selectStudent(id, sid, name, course = '— —', totalFee = 0.00, paidA
     };
 
     console.log("Selected Student Data:", { id, sid, name, course, totalFee, paidAmount, balance });
-    // Update hidden field
+
+    // Update hidden fields
     document.getElementById('selectedStudentId').value = sid;
+    document.getElementById('studId').value = id;
+
+    // Set form action immediately when student is selected
+    const form = document.getElementById('paymentForm');
+    form.action = `/cashier/collect-payment/${id}`;
 
     // Show student info
     document.getElementById('studentInfo').classList.remove('d-none');
@@ -348,8 +351,6 @@ function selectStudent(id, sid, name, course = '— —', totalFee = 0.00, paidA
     document.getElementById('paidAmount').textContent = paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2});
     document.getElementById('remainingBalance').textContent = balance.toLocaleString('en-US', {minimumFractionDigits: 2});
 
-
-    document.getElementById('studId').value = id;
     // Enable form
     document.getElementById('paymentAmount').disabled = false;
     document.getElementById('paymentMethod').disabled = false;
@@ -363,7 +364,6 @@ function handlePaymentMethodChange() {
     // Simplified - just update the payment summary
     updatePaymentSummary();
 }
-
 
 function setQuickAmount(amount) {
     document.getElementById('paymentAmount').value = amount;
@@ -414,7 +414,7 @@ function previewPayment() {
 
     // Populate preview modal
     document.getElementById('previewStudentName').textContent = selectedStudentData.name;
-    document.getElementById('previewStudentId').textContent = selectedStudentData.id;
+    document.getElementById('previewStudentId').textContent = selectedStudentData.sid;
     document.getElementById('previewStudentCourse').textContent = selectedStudentData.course;
     document.getElementById('previewAmount').textContent = amount.toLocaleString('en-US', {minimumFractionDigits: 2});
     document.getElementById('previewMethod').textContent = method.replace('_', ' ').toUpperCase();
@@ -427,19 +427,47 @@ function previewPayment() {
 }
 
 function confirmPayment() {
-    // Hide modal
-    bootstrap.Modal.getInstance(document.getElementById('paymentPreviewModal')).hide();
+    // Validate that we have all required data
+    if (!selectedStudentData) {
+        alert('Please select a student first.');
+        return;
+    }
 
-    // Submit form
-    document.getElementById('paymentForm').submit();
+    const form = document.getElementById('paymentForm');
+    const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+    const method = document.getElementById('paymentMethod').value;
+
+    if (amount <= 0 || !method) {
+        alert('Please enter a valid amount and select a payment method.');
+        return;
+    }
+
+    // Ensure form action is set
+    if (!form.action || form.action.endsWith('/')) {
+        form.action = `/cashier/collect-payment/${selectedStudentData.id}`;
+    }
+
+    // Hide modal first
+    const modalInstance = bootstrap.Modal.getInstance(document.getElementById('paymentPreviewModal'));
+    if (modalInstance) {
+        modalInstance.hide();
+    }
+
+    // Add a small delay to ensure modal is hidden before form submission
+    setTimeout(() => {
+        console.log('Submitting form to:', form.action);
+        console.log('Form data:', new FormData(form));
+        form.submit();
+    }, 300);
 }
 
 function resetForm() {
     if (confirm('Are you sure you want to reset the form? All entered data will be lost.')) {
         document.getElementById('paymentForm').reset();
         document.getElementById('selectedStudentId').value = '';
+        document.getElementById('studId').value = '';
+        document.getElementById('paymentForm').action = '';
         document.getElementById('studentInfo').classList.add('d-none');
-        document.getElementById('additionalFields').classList.add('d-none');
         document.getElementById('studentSearch').value = '';
         document.getElementById('studentResults').innerHTML = '';
         selectedStudentData = null;
@@ -447,6 +475,7 @@ function resetForm() {
     }
 }
 
+// Keep the original form submit handler as backup, but it should not be needed now
 document.getElementById('paymentForm').addEventListener('submit', function (e) {
     const studentId = document.getElementById('studId').value;
 
@@ -456,9 +485,12 @@ document.getElementById('paymentForm').addEventListener('submit', function (e) {
         return;
     }
 
-    // Set form action dynamically
-    this.action = `/cashier/collect-payment/${studentId}`;
-});
+    // Ensure form action is set (backup check)
+    if (!this.action || this.action.endsWith('/')) {
+        this.action = `/cashier/collect-payment/${studentId}`;
+    }
 
+    console.log('Form submitting to:', this.action);
+});
 </script>
 {% endblock %}
