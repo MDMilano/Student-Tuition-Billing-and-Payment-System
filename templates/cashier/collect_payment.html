@@ -67,13 +67,13 @@
                         ] %}
                         <button type="button" class="list-group-item list-group-item-action"
                                 onclick='selectStudent(
-                                    {% if student.id is not none %}{{ student.id | tojson }}{% else %}null{% endif %},
-                                    {% if student.sid is not none %}{{ student.sid | tojson }}{% else %}null{% endif %},
-                                    {% if student.name is not none %}{{ student.name | tojson }}{% else %}"null"{% endif %},
-                                    {% if student.course is not none %}{{ student.course | tojson }}{% else %}"— —"{% endif %},
+                                    {{ student.id | default(0) | tojson }},
+                                    {{ student.sid | default("null") | tojson }},
+                                    {{ student.name | default("Unknown") | tojson }},
+                                    {{ student.course | default("— —") | tojson }},
                                     {{ student.totalFee | default(0.00) }},
                                     {{ student.paidAmount | default(0.00) }},
-                                    {{ student.balance | default(0.00) }}
+                                    {{ student.balance | default(0.00) }}  <!-- Ensure balance is included -->
                                 )'>
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">{{ student.name }}</h6>
@@ -85,6 +85,7 @@
                                 {% if student.id is not none %}{{ student.id }}{% else %}N/A{% endif %}
                             </p>
                         </button>
+
                         {% endfor %}
                     </div>
                 </div>
@@ -122,7 +123,7 @@
 
                 <!-- Payment Form -->
 <!--                {# <form id="paymentForm" action="{{ url_for('cashier.collect_payment') }}" method="POST"> #}-->
-                <form id="paymentForm" action="#" method="POST">
+                <form id="paymentForm" action="" method="POST">
                     <input type="hidden" id="selectedStudentId" name="student_id" value="">
 
                     <div class="row">
@@ -149,50 +150,6 @@
                         </div>
                     </div>
 
-                    <!-- Payment Method Specific Fields -->
-                    <div id="additionalFields" class="mb-3 d-none">
-                        <!-- Bank Transfer Fields -->
-                        <div id="bankTransferFields" class="d-none">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="bankName" class="form-label">Bank Name</label>
-                                    <input type="text" class="form-control" id="bankName" name="bank_name" placeholder="e.g., BDO, BPI, Metrobank">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="referenceNumber" class="form-label">Reference Number</label>
-                                    <input type="text" class="form-control" id="referenceNumber" name="reference_number" placeholder="Transaction reference">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- GCash/PayMaya Fields -->
-                        <div id="ewalletFields" class="d-none">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="phoneNumber" class="form-label">Phone Number</label>
-                                    <input type="tel" class="form-control" id="phoneNumber" name="phone_number" placeholder="09xxxxxxxxx">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="transactionId" class="form-label">Transaction ID</label>
-                                    <input type="text" class="form-control" id="transactionId" name="transaction_id" placeholder="Transaction ID">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Check Fields -->
-                        <div id="checkFields" class="d-none">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="checkNumber" class="form-label">Check Number</label>
-                                    <input type="text" class="form-control" id="checkNumber" name="check_number" placeholder="Check number">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="checkDate" class="form-label">Check Date</label>
-                                    <input type="date" class="form-control" id="checkDate" name="check_date">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <div class="mb-3">
                         <label for="paymentNotes" class="form-label">Notes (Optional)</label>
@@ -403,34 +360,10 @@ function selectStudent(id, sid, name, course = '— —', totalFee = 0.00, paidA
 
 function handlePaymentMethodChange() {
     const method = document.getElementById('paymentMethod').value;
-    const additionalFields = document.getElementById('additionalFields');
-
-    // Hide all additional fields first
-    document.querySelectorAll('#additionalFields > div').forEach(div => div.classList.add('d-none'));
-
-    if (method) {
-        additionalFields.classList.remove('d-none');
-
-        switch(method) {
-            case 'bank_transfer':
-                document.getElementById('bankTransferFields').classList.remove('d-none');
-                break;
-            case 'gcash':
-            case 'paymaya':
-                document.getElementById('ewalletFields').classList.remove('d-none');
-                break;
-            case 'check':
-                document.getElementById('checkFields').classList.remove('d-none');
-                break;
-            default:
-                additionalFields.classList.add('d-none');
-        }
-    } else {
-        additionalFields.classList.add('d-none');
-    }
-
+    // Simplified - just update the payment summary
     updatePaymentSummary();
 }
+
 
 function setQuickAmount(amount) {
     document.getElementById('paymentAmount').value = amount;

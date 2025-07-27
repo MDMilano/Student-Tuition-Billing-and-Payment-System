@@ -10,6 +10,7 @@ from flask import send_file
 import io
 import pandas as pd
 from flask import jsonify, request
+from decimal import Decimal
 
 
 cashier_bp = Blueprint('cashier', __name__)
@@ -326,7 +327,8 @@ def view_collect_payment():
                     CONCAT(s.first_name, ' ', s.last_name) AS name,
                     c.name AS course,
                     c.price AS totalFee,  -- Total due is the course price
-                    COALESCE(SUM(p.amount_paid), 0) AS paidAmount  -- Total paid from payments
+                    COALESCE(SUM(p.amount_paid), 0) AS paidAmount,  -- Total paid from payments
+                    (c.price - COALESCE(SUM(p.amount_paid), 0)) AS balance  -- Calculate balance directly in SQL
                 FROM students s
                 LEFT JOIN courses c ON s.course_id = c.id
                 LEFT JOIN payments p ON s.id = p.student_id
@@ -337,10 +339,6 @@ def view_collect_payment():
             ''')
             recent_students = cursor.fetchall()
 
-            # Calculate balance for each student
-            for student in recent_students:
-                student['balance'] = student['totalFee'] - student['paidAmount']  # Calculate balance
-
     except Exception as e:
         flash(f'Error: {str(e)}', 'error')
 
@@ -349,6 +347,7 @@ def view_collect_payment():
 
     return render_template('cashier/collect_payment.html',
                            recent_students=recent_students)
+
 
 
 
@@ -402,36 +401,71 @@ def api_search_student():
         connection.close()
 
 
-
 @cashier_bp.route('/collect-payment/<int:student_id>', methods=['GET', 'POST'])
 @login_required
 @cashier_required
 def collect_payment(student_id):
     connection = get_db_connection()
+    student = None  # Initialize student variable to ensure it's defined
+    try:
+        if request.method == 'POST':
+            amount = request.form.get('amount')
+            method = request.form.get('payment_method')
+            reference = request.form.get('reference_number', '')
+            notes = request.form.get('notes', '')
+            billing_id = request.form.get('billing_id')
 
-    if request.method == 'POST':
-        amount = request.form.get('amount')
-        method = request.form.get('payment_method')
-        reference = request.form.get('reference_number', '')
-        notes = request.form.get('notes', '')
-        billing_id = request.form.get('billing_id')
+            if not amount or not method:
+                flash('Please fill in all required fields.', 'error')
+                return redirect(url_for('cashier.view_collect_payment'))
 
-        if not amount or not method:
-            flash('Please fill in all required fields.', 'error')
-            return redirect(url_for('cashier.collect_payment', student_id=student_id))
+            try:
+                amount = Decimal(amount)  # Convert to Decimal
+                if amount <= 0:
+                    flash('Amount must be greater than zero.', 'error')
+                    return redirect(url_for('cashier.view_collect_payment'))
+            except Exception as e:
+                flash(f'Error: {str(e)}', 'error')
+                return redirect(url_for('cashier.view_collect_payment'))
 
-        try:
-            amount = float(amount)
-            if amount <= 0:
-                flash('Amount must be greater than zero.', 'error')
-                return redirect(url_for('cashier.collect_payment', student_id=student_id))
-        except ValueError:
-            flash('Invalid amount.', 'error')
-            return redirect(url_for('cashier.collect_payment', student_id=student_id))
-
-        try:
             with connection.cursor() as cursor:
-                # Insert payment record
+                # Get the student's total due and total paid
+                cursor.execute('''
+                    SELECT 
+                        s.id AS student_id,
+                        CONCAT(s.first_name, ' ', s.last_name) AS name,
+                        c.price AS total_due,
+                        COALESCE(SUM(p.amount_paid), 0) AS total_paid
+                    FROM students s
+                    LEFT JOIN courses c ON s.course_id = c.id
+                    LEFT JOIN payments p ON s.id = p.student_id
+                    WHERE s.id = %s
+                    GROUP BY s.id, s.first_name, s.last_name;
+                ''', (student_id,))
+                student_data = cursor.fetchone()
+
+                if not student_data:
+                    flash('Student not found.', 'error')
+                    return redirect(url_for('cashier.students'))
+
+                total_due = Decimal(student_data['total_due'])  # Convert to Decimal
+                total_paid = Decimal(student_data['total_paid'])  # Convert to Decimal
+                balance = total_due - total_paid
+
+                # Check if the balance is already zero
+                if balance <= 0:
+                    flash('The student has already paid in full. No further payments are required.', 'error')
+                    return redirect(url_for('cashier.view_collect_payment'))
+
+                # Calculate the new total paid
+                new_total_paid = total_paid + amount
+
+                # Check if the new total paid exceeds the total due
+                if new_total_paid > total_due:
+                    flash(f'The payment amount of ₱{amount:,.2f} exceeds the total due of ₱{total_due:,.2f}. Payment cannot be processed.', 'error')
+                    return redirect(url_for('cashier.view_collect_payment'))
+
+                # Insert payment record only if all checks pass
                 cursor.execute('''
                     INSERT INTO payments (student_id, billing_id, amount_paid, payment_method, reference_number, payment_date, collected_by, notes)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -449,46 +483,28 @@ def collect_payment(student_id):
                         WHERE student_id = %s
                     ''', (amount, student_id))
 
-                    # Optionally, you can also update the balance if needed, but since you mentioned it is auto-computed, this may not be necessary.
-                    # If balance is computed in the database, you can skip this step.
-                    # cursor.execute('''
-                    #     UPDATE student_balances
-                    #     SET balance = total_due - total_paid
-                    #     WHERE id = %s
-                    # ''', (billing_id,))
-
                 # Get student info for logging
-                cursor.execute("SELECT first_name, last_name, student_id FROM students WHERE id = %s", (student_id,))
-                student = cursor.fetchone()
-
                 log_activity(current_user.id,
-                             f"Collected payment of ₱{amount:,.2f} from {student['first_name']} {student['last_name']} ({student['student_id']})",
+                             f"Collected payment of ₱{amount:,.2f} from {student_data['name']} ({student_data['student_id']})",
                              'payments', payment_id)
 
                 flash(f'Payment of ₱{amount:,.2f} collected successfully.', 'success')
                 return redirect(url_for('cashier.students'))
 
-        except Exception as e:
-            flash(f'Error processing payment: {str(e)}', 'error')
-
-        finally:
-            connection.close()
-
-    # GET request - show payment form
-    try:
+        # GET request - show payment form
         with connection.cursor() as cursor:
             # Get student info with course details
             cursor.execute('''
                 SELECT 
-                    s.*,
-                    c.name as course_name,
-                    SUM(c.price) as total_due,  -- Total due is the course price
-                    COALESCE(SUM(p.amount_paid), 0) as total_paid  -- Total paid from payments
+                    s.id AS student_id,
+                    CONCAT(s.first_name, ' ', s.last_name) AS name,
+                    c.price AS total_due,
+                    COALESCE(SUM(p.amount_paid), 0) AS total_paid
                 FROM students s
                 LEFT JOIN courses c ON s.course_id = c.id
                 LEFT JOIN payments p ON s.id = p.student_id
                 WHERE s.id = %s AND s.is_active = TRUE
-                GROUP BY s.id, c.id  -- Group by student and course
+                GROUP BY s.id, s.first_name, s.last_name;
             ''', (student_id,))
 
             student_data = cursor.fetchall()
@@ -500,8 +516,8 @@ def collect_payment(student_id):
             student = student_data[0]
 
             # Calculate balance
-            total_due = student['total_due']
-            total_paid = student['total_paid']
+            total_due = Decimal(student['total_due'])  # Convert to Decimal
+            total_paid = Decimal(student['total_paid'])  # Convert to Decimal
             balance = total_due - total_paid
             status = 'unpaid' if total_paid == 0 else 'paid' if total_paid >= total_due else 'partial'
 
@@ -516,6 +532,8 @@ def collect_payment(student_id):
                 'status': status
             }]
 
+    except Exception as e:
+        flash(f'An unexpected error occurred: {str(e)}', 'error')
     finally:
         connection.close()
 
