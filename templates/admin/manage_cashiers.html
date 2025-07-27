@@ -130,6 +130,11 @@
                                         data-bs-toggle="tooltip" title="Edit Cashier">
                                     <i class="bi bi-pencil"></i>
                                 </button>
+                                <button type="button" class="btn btn-sm btn-outline-info"
+                                        onclick="resendCredentials('{{ cashier.id }}', '{{ cashier.name }}', '{{ cashier.email }}')"
+                                        data-bs-toggle="tooltip" title="Resend Login Credentials">
+                                    <i class="bi bi-envelope"></i>
+                                </button>
                                 <button type="button"
                                         class="btn btn-sm {% if cashier.is_active %}btn-outline-success{% else %}btn-outline-secondary{% endif %}"
                                         onclick="toggleCashierStatus('{{ cashier.id }}')"
@@ -174,7 +179,7 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('admin.add_cashier') }}" method="POST">
+            <form action="{{ url_for('admin.add_cashier') }}" method="POST" id="addCashierForm">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="name" class="form-label">Full Name *</label>
@@ -184,16 +189,22 @@
                         <label for="email" class="form-label">Email Address *</label>
                         <input type="email" class="form-control" id="email" name="email" required>
                     </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password *</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                        <div class="form-text">Minimum 6 characters</div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> A temporary password will be automatically generated and sent to the cashier's email address along with login instructions.
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="sendEmail" name="send_email" checked>
+                        <label class="form-check-label" for="sendEmail">
+                            Send login credentials via email
+                        </label>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" id="addCashierBtn">
                         <i class="bi bi-check-lg me-2"></i>Add Cashier
+                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
                     </button>
                 </div>
             </form>
@@ -234,6 +245,36 @@
         </div>
     </div>
 </div>
+
+<!-- Resend Credentials Modal -->
+<div class="modal fade" id="resendCredentialsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-envelope me-2"></i>
+                    Resend Login Credentials
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    This will generate a new temporary password and send it to the cashier's email address.
+                </div>
+                <p>Are you sure you want to resend login credentials to <strong id="resendCashierName"></strong>?</p>
+                <p class="text-muted">Email: <span id="resendCashierEmail"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmResendBtn">
+                    <i class="bi bi-envelope me-2"></i>Resend Credentials
+                    <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -254,6 +295,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const text = row.textContent.toLowerCase();
             row.style.display = text.includes(searchTerm) ? '' : 'none';
         });
+    });
+
+    // Add loading state to add cashier form
+    document.getElementById('addCashierForm').addEventListener('submit', function() {
+        const btn = document.getElementById('addCashierBtn');
+        const spinner = btn.querySelector('.spinner-border');
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        btn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Adding Cashier... <span class="spinner-border spinner-border-sm" role="status"></span>';
     });
 });
 
@@ -280,6 +331,26 @@ function editCashier(cashierId, name, email) {
 
     const editModal = new bootstrap.Modal(document.getElementById('editCashierModal'));
     editModal.show();
+}
+
+function resendCredentials(cashierId, name, email) {
+    document.getElementById('resendCashierName').textContent = name;
+    document.getElementById('resendCashierEmail').textContent = email;
+
+    const resendModal = new bootstrap.Modal(document.getElementById('resendCredentialsModal'));
+    resendModal.show();
+
+    // Set up confirm button click handler
+    document.getElementById('confirmResendBtn').onclick = function() {
+        const btn = this;
+        const spinner = btn.querySelector('.spinner-border');
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        btn.innerHTML = '<i class="bi bi-envelope me-2"></i>Sending... <span class="spinner-border spinner-border-sm" role="status"></span>';
+
+        window.location.href = `/admin/cashiers/resend-credentials/${cashierId}`;
+    };
 }
 
 function toggleCashierStatus(cashierId) {

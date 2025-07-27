@@ -943,6 +943,13 @@ def get_course_students(course_id):
         connection.close()
 
 
+import secrets
+import string
+import re
+from flask import request, redirect, url_for, flash, render_template
+from utils.email_utils import send_login_credentials_email
+
+
 @admin_bp.route('/cashiers')
 @login_required
 @admin_required
@@ -952,39 +959,76 @@ def cashiers():
     return render_template('admin/manage_cashiers.html', cashiers=cashiers)
 
 
+def generate_temporary_password(length=12):
+    """Generate a secure temporary password"""
+    # Use a mix of letters, digits, and special characters
+    characters = string.ascii_letters + string.digits + "!@#$%&*"
+    # Ensure at least one character from each category
+    password = [
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.digits),
+        secrets.choice("!@#$%&*")
+    ]
+
+    # Fill the rest randomly
+    for _ in range(length - 4):
+        password.append(secrets.choice(characters))
+
+    # Shuffle the password list
+    secrets.SystemRandom().shuffle(password)
+    return ''.join(password)
+
+
 @admin_bp.route('/cashiers/add', methods=['POST'])
 @login_required
 @admin_required
 def add_cashier():
-    """Add new cashier with validation"""
+    """Add new cashier with validation and email notification"""
     name = request.form.get('name', '').strip()
     email = request.form.get('email', '').strip().lower()
-    password = request.form.get('password', '')
+    send_email = request.form.get('send_email') == 'on'
 
     # Validation
-    if not all([name, email, password]):
+    if not all([name, email]):
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('admin.cashiers'))
 
-    if len(password) < 6:
-        flash('Password must be at least 6 characters long.', 'error')
-        return redirect(url_for('admin.cashiers'))
-
     # Validate email format
-    import re
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(email_pattern, email):
         flash('Please enter a valid email address.', 'error')
         return redirect(url_for('admin.cashiers'))
 
+    # Generate temporary password
+    temporary_password = generate_temporary_password()
+
     try:
-        user_id = User.create(name, email, password, 'cashier')
-        flash('Cashier added successfully.', 'success')
+        # Create user account
+        user_id = User.create(name, email, temporary_password, 'cashier')
+
+        if user_id:
+            # Send email with login credentials if requested
+            if send_email:
+                email_sent = send_login_credentials_email(name, email, temporary_password)
+                if email_sent:
+                    flash(f'Cashier "{name}" added successfully! Login credentials have been sent to {email}.',
+                          'success')
+                else:
+                    flash(
+                        f'Cashier "{name}" added successfully, but failed to send email. Please manually provide the temporary password: {temporary_password}',
+                        'warning')
+            else:
+                flash(f'Cashier "{name}" added successfully! Temporary password: {temporary_password}', 'success')
+        else:
+            flash('Error creating cashier account. Please try again.', 'error')
+
     except Exception as e:
         if 'Duplicate entry' in str(e) or 'email already exists' in str(e).lower():
             flash('Email address already exists. Please use a different email.', 'error')
         else:
             flash('Error adding cashier. Please try again.', 'error')
+            print(f"Error creating cashier: {e}")
 
     return redirect(url_for('admin.cashiers'))
 
@@ -1003,7 +1047,6 @@ def edit_cashier(cashier_id):
         return redirect(url_for('admin.cashiers'))
 
     # Validate email format
-    import re
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(email_pattern, email):
         flash('Please enter a valid email address.', 'error')
@@ -1019,6 +1062,46 @@ def edit_cashier(cashier_id):
             flash('Email address already exists. Please use a different email.', 'error')
         else:
             flash('Error updating cashier. Please try again.', 'error')
+            print(f"Error updating cashier: {e}")
+
+    return redirect(url_for('admin.cashiers'))
+
+
+@admin_bp.route('/cashiers/resend-credentials/<int:cashier_id>')
+@login_required
+@admin_required
+def resend_credentials(cashier_id):
+    """Generate new temporary password and resend credentials to cashier"""
+    try:
+        # Get cashier details
+        cashier = User.get_by_id(cashier_id)
+        if not cashier:
+            flash('Cashier not found.', 'error')
+            return redirect(url_for('admin.cashiers'))
+
+        if cashier.role != 'cashier':
+            flash('Invalid user type.', 'error')
+            return redirect(url_for('admin.cashiers'))
+
+        # Generate new temporary password
+        new_temporary_password = generate_temporary_password()
+
+        # Update password in database
+        if User.update_password_by_id(cashier_id, new_temporary_password):
+            # Send email with new credentials
+            email_sent = send_login_credentials_email(cashier.name, cashier.email, new_temporary_password)
+
+            if email_sent:
+                flash(f'New login credentials have been sent to {cashier.email}.', 'success')
+            else:
+                flash(f'Failed to send email. New temporary password for {cashier.name}: {new_temporary_password}',
+                      'warning')
+        else:
+            flash('Error generating new credentials. Please try again.', 'error')
+
+    except Exception as e:
+        flash('Error resending credentials. Please try again.', 'error')
+        print(f"Error resending credentials: {e}")
 
     return redirect(url_for('admin.cashiers'))
 
@@ -1037,6 +1120,7 @@ def toggle_cashier(cashier_id):
             flash('Error updating cashier status.', 'error')
     except Exception as e:
         flash('Error updating cashier status.', 'error')
+        print(f"Error toggling cashier status: {e}")
 
     return redirect(url_for('admin.cashiers'))
 
@@ -1063,6 +1147,7 @@ def delete_cashier(cashier_id):
             flash('Error deleting cashier.', 'error')
     except Exception as e:
         flash('Error deleting cashier.', 'error')
+        print(f"Error deleting cashier: {e}")
 
     return redirect(url_for('admin.cashiers'))
 

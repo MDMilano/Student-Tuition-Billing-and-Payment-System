@@ -60,10 +60,9 @@ def dashboard():
                     COALESCE(SUM(amount_paid), 0) as total_collected,
                     COUNT(*) as payment_count
                 FROM payments
-                WHERE collected_by = %s
-                  AND payment_date >= CURDATE()
+                WHERE payment_date >= CURDATE()
                   AND payment_date < CURDATE() + INTERVAL 1 DAY
-            ''', (current_user.id,))
+            ''')
             today_stats = cursor.fetchone()
 
             # Total pending amount (partial + unpaid)
@@ -152,10 +151,9 @@ def dashboard():
                 JOIN students s ON p.student_id = s.id
                 JOIN courses c ON s.course_id = c.id
                 JOIN StudentPayments sp ON p.student_id = sp.student_id
-                WHERE p.collected_by = %s
                 ORDER BY p.created_at DESC
                 LIMIT 5
-            ''', (current_user.id,))
+            ''')
             recent_payments = cursor.fetchall()
 
     finally:

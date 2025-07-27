@@ -115,6 +115,26 @@ class User(UserMixin):
             connection.close()
 
     @staticmethod
+    def update_password_by_id(user_id, new_password):
+        """Update user password by user ID - needed for resend credentials"""
+        connection = get_db_connection()
+        try:
+            with connection.cursor() as cursor:
+                password_hash = generate_password_hash(new_password)
+                cursor.execute('''
+                    UPDATE users SET password_hash = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                ''', (password_hash, user_id))
+                connection.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error updating password by ID: {e}")
+            connection.rollback()
+            return False
+        finally:
+            connection.close()
+
+    @staticmethod
     def get_all_cashiers():
 #         connection = User.get_db_connection()
 #for the automated connetion:
