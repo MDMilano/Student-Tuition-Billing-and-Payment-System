@@ -57,15 +57,23 @@
 <!-- Search and Filter -->
 <div class="card mb-4">
     <div class="card-body">
-        <div class="g-3">
-            <div class="col-md-full">
+        <div class="row g-3">
+            <div class="col-md-8">
                 <label for="searchCourse" class="form-label">Search Courses</label>
                 <div class="input-group">
-                    <input type="text" class="form-control" id="searchCourse" placeholder="Search by course name or code">
+                    <input type="text" class="form-control" id="searchCourse" placeholder="Search by course name">
                     <button class="btn btn-outline-secondary" type="button">
                         <i class="bi bi-search"></i>
                     </button>
                 </div>
+            </div>
+            <div class="col-md-4">
+                <label for="sortBy" class="form-label">Sort By</label>
+                <select class="form-select" id="sortBy">
+                    <option value="name">Course Name</option>
+                    <option value="price">Price</option>
+                    <option value="date">Date Created</option>
+                </select>
             </div>
         </div>
     </div>
@@ -78,8 +86,12 @@
         <div class="card h-100 shadow-sm border-0">
             <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center py-3">
                 <div class="d-flex align-items-center gap-3">
-                    <h6 class="mb-0 fw-bold text-dark">{{ course.code }}</h6>
-                    <span class="badge bg-success px-3 py-2 rounded-pill">Active</span>
+                    <h6 class="mb-0 fw-bold text-dark course-name-header">{{ course.name }}</h6>
+                    {% if course.is_active %}
+                        <span class="badge bg-success px-3 py-2 rounded-pill">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary px-3 py-2 rounded-pill">Inactive</span>
+                    {% endif %}
                 </div>
                 <div class="dropdown">
                     <button class="btn btn-outline-secondary btn-sm rounded-circle d-flex align-items-center justify-content-center"
@@ -93,6 +105,20 @@
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
+                        {% if course.is_active %}
+                            <li>
+                                <a class="dropdown-item text-warning py-2" href="#" onclick="toggleCourseStatus({{ course.id }}, false)">
+                                    <i class="bi bi-pause-circle me-2"></i>Deactivate Course
+                                </a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a class="dropdown-item text-success py-2" href="#" onclick="toggleCourseStatus({{ course.id }}, true)">
+                                    <i class="bi bi-play-circle me-2"></i>Activate Course
+                                </a>
+                            </li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item text-danger py-2" href="#" onclick="deleteCourse({{ course.id }})">
                                 <i class="bi bi-trash me-2"></i>Delete Course
@@ -103,10 +129,11 @@
             </div>
 
             <div class="card-body py-4">
-                <h5 class="card-title mb-3 fw-bold">{{ course.name }}</h5>
-                <p class="card-text text-muted mb-4" style="line-height: 1.6;">
-                    {{ course.description or 'No description available' }}
-                </p>
+                <div class="mb-4">
+                    <p class="card-text text-muted" style="line-height: 1.6;">
+                        {{ course.description or 'No description available' }}
+                    </p>
+                </div>
 
                 <div class="row g-3">
                     <div class="col-12">
@@ -122,6 +149,13 @@
                         </div>
                     </div>
                 </div>
+
+                {% if not course.is_active %}
+                    <div class="alert alert-warning mt-3 mb-0" role="alert">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        This course is currently inactive and not available for new enrollments.
+                    </div>
+                {% endif %}
             </div>
 
             <div class="card-footer bg-white border-0 pt-0 pb-3">
@@ -129,9 +163,15 @@
                     <button type="button" class="btn btn-primary flex-fill" onclick="viewStudents({{ course.id }})">
                         <i class="bi bi-people me-2"></i>Students
                     </button>
-                    <button type="button" class="btn btn-outline-secondary flex-fill" onclick="editCourse({{ course.id }})">
-                        <i class="bi bi-pencil me-2"></i>Edit
-                    </button>
+                    {% if course.is_active %}
+                        <button type="button" class="btn btn-outline-secondary flex-fill" onclick="editCourse({{ course.id }})">
+                            <i class="bi bi-pencil me-2"></i>Edit
+                        </button>
+                    {% else %}
+                        <button type="button" class="btn btn-outline-success flex-fill" onclick="toggleCourseStatus({{ course.id }}, true)">
+                            <i class="bi bi-play-circle me-2"></i>Activate
+                        </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -153,12 +193,7 @@
             <form id="addCourseForm" method="POST" action="{{ url_for('admin.add_course') }}">
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="courseCode" class="form-label">Course Code *</label>
-                            <input type="text" class="form-control" id="courseCode" name="code"
-                                   placeholder="e.g., WEB-001" required>
-                        </div>
-                        <div class="col-md-6">
+                        <div class="col-12">
                             <label for="courseName" class="form-label">Course Name *</label>
                             <input type="text" class="form-control" id="courseName" name="name"
                                    placeholder="e.g., Web Development Bootcamp" required>
@@ -168,7 +203,7 @@
                             <textarea class="form-control" id="courseDescription" name="description"
                                       rows="3" placeholder="Brief description of the course"></textarea>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label for="coursePrice" class="form-label">Course Price (₱) *</label>
                             <input type="number" class="form-control" id="coursePrice" name="price"
                                    min="0" step="0.01" required>
@@ -201,11 +236,7 @@
                 <input type="hidden" id="editCourseId" name="course_id">
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="editCourseCode" class="form-label">Course Code *</label>
-                            <input type="text" class="form-control" id="editCourseCode" name="code" required>
-                        </div>
-                        <div class="col-md-6">
+                        <div class="col-12">
                             <label for="editCourseName" class="form-label">Course Name *</label>
                             <input type="text" class="form-control" id="editCourseName" name="name" required>
                         </div>
@@ -213,7 +244,7 @@
                             <label for="editCourseDescription" class="form-label">Course Description</label>
                             <textarea class="form-control" id="editCourseDescription" name="description" rows="3"></textarea>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label for="editCoursePrice" class="form-label">Course Price (₱) *</label>
                             <input type="number" class="form-control" id="editCoursePrice" name="price"
                                    min="0" step="0.01" required>
@@ -280,7 +311,6 @@ function editCourse(courseId) {
             }
 
             document.getElementById('editCourseId').value = data.id;
-            document.getElementById('editCourseCode').value = data.code;
             document.getElementById('editCourseName').value = data.name;
             document.getElementById('editCourseDescription').value = data.description;
             document.getElementById('editCoursePrice').value = data.price;
@@ -297,21 +327,25 @@ function editCourse(courseId) {
         });
 }
 
+function toggleCourseStatus(courseId, activate) {
+    const action = activate ? 'activate' : 'deactivate';
+    const actionText = activate ? 'Activate' : 'Deactivate';
+
+    if (confirm(`Are you sure you want to ${action} this course?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/courses/${action}/${courseId}`;
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
 function deleteCourse(courseId) {
     if (confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/admin/courses/delete/${courseId}`;
-
-        // Add CSRF token if you're using it
-        // const csrfToken = document.querySelector('meta[name=csrf-token]');
-        // if (csrfToken) {
-        //     const tokenInput = document.createElement('input');
-        //     tokenInput.type = 'hidden';
-        //     tokenInput.name = 'csrf_token';
-        //     tokenInput.value = csrfToken.getAttribute('content');
-        //     form.appendChild(tokenInput);
-        // }
 
         document.body.appendChild(form);
         form.submit();
@@ -363,10 +397,9 @@ document.getElementById('searchCourse').addEventListener('input', function(e) {
     const courseCards = document.querySelectorAll('.col-lg-6');
 
     courseCards.forEach(card => {
-        const courseName = card.querySelector('.card-title').textContent.toLowerCase();
-        const courseCode = card.querySelector('.card-header h6').textContent.toLowerCase();
+        const courseName = card.querySelector('.course-name-header').textContent.toLowerCase();
 
-        if (courseName.includes(searchTerm) || courseCode.includes(searchTerm)) {
+        if (courseName.includes(searchTerm)) {
             card.style.display = '';
         } else {
             card.style.display = 'none';
@@ -377,7 +410,7 @@ document.getElementById('searchCourse').addEventListener('input', function(e) {
 // Sort functionality
 document.getElementById('sortBy').addEventListener('change', function(e) {
     const sortBy = e.target.value;
-    const container = document.querySelector('.row:has(.col-lg-6)');
+    const container = document.querySelector('.row.g-4');
     const cards = Array.from(container.querySelectorAll('.col-lg-6'));
 
     cards.sort((a, b) => {
@@ -385,20 +418,16 @@ document.getElementById('sortBy').addEventListener('change', function(e) {
 
         switch(sortBy) {
             case 'name':
-                aValue = a.querySelector('.card-title').textContent.toLowerCase();
-                bValue = b.querySelector('.card-title').textContent.toLowerCase();
-                break;
-            case 'code':
-                aValue = a.querySelector('.card-header h6').textContent.toLowerCase();
-                bValue = b.querySelector('.card-header h6').textContent.toLowerCase();
+                aValue = a.querySelector('.course-name-header').textContent.toLowerCase();
+                bValue = b.querySelector('.course-name-header').textContent.toLowerCase();
                 break;
             case 'price':
-                aValue = parseFloat(a.querySelector('.fw-bold').textContent.replace('₱', '').replace(',', ''));
-                bValue = parseFloat(b.querySelector('.fw-bold').textContent.replace('₱', '').replace(',', ''));
+                aValue = parseFloat(a.querySelector('.fw-bold.fs-5').textContent.replace('₱', '').replace(',', ''));
+                bValue = parseFloat(b.querySelector('.fw-bold.fs-5').textContent.replace('₱', '').replace(',', ''));
                 break;
             case 'date':
-                aValue = new Date(a.querySelector('.text-muted').textContent);
-                bValue = new Date(b.querySelector('.text-muted').textContent);
+                aValue = new Date(a.querySelector('.text-muted small').textContent);
+                bValue = new Date(b.querySelector('.text-muted small').textContent);
                 break;
             default:
                 return 0;

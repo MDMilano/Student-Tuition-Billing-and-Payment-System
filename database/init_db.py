@@ -69,8 +69,7 @@ def create_tables(port):
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS courses (
                     id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(100) NOT NULL,
-                    code VARCHAR(20) UNIQUE NOT NULL,
+                    name VARCHAR(100) UNIQUE NOT NULL,
                     price DECIMAL(10,2) NOT NULL,
                     description TEXT,
                     is_active BOOLEAN DEFAULT TRUE,
@@ -98,43 +97,13 @@ def create_tables(port):
                 )
             ''')
 
-            # ✅ Student Balances table (NEW)
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS student_balances (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    student_id INT NOT NULL,
-                    semester ENUM('1st', '2nd') NOT NULL,
-                    from_year YEAR NOT NULL,
-                    to_year YEAR NOT NULL,
-                    total_due DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                    total_paid DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                    balance DECIMAL(10,2) AS (total_due - total_paid) STORED,
-                    
-                    -- ✅ Auto-calculated payment status
-                    status VARCHAR(10) AS (
-                        CASE
-                            WHEN total_paid = 0 THEN 'unpaid'
-                            WHEN total_paid >= total_due THEN 'paid'
-                            ELSE 'partial'
-                        END
-                    ) STORED,
-                
-                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                
-                    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-                    CONSTRAINT unique_term_balance UNIQUE (student_id, semester, from_year, to_year)
-                );
-            ''')
-
             # Payments table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS payments (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     student_id INT NOT NULL,
-                    billing_id INT,  -- Nullable FK to student_balances
                     amount_paid DECIMAL(10,2) NOT NULL,
                     payment_method ENUM('cash', 'gcash', 'bank_transfer') NOT NULL,
-                    reference_number VARCHAR(50),
                     payment_date DATE NOT NULL,
                     collected_by INT NOT NULL,
                     notes TEXT,

@@ -63,7 +63,7 @@ class User(UserMixin):
 
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT * FROM users WHERE email = %s AND is_active = TRUE", (email,))
+                cursor.execute("SELECT * FROM users WHERE email = %s;", (email,))
                 user_data = cursor.fetchone()
                 if user_data:
                     return User(**user_data)
@@ -200,7 +200,7 @@ class User(UserMixin):
     @staticmethod
     def delete(user_id):
         """Delete user (use with caution)"""
-        connection = User.get_db_connection()
+        connection = get_db_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))

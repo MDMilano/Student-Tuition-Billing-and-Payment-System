@@ -36,7 +36,7 @@ def log_activity(user_id, action, role=None):
     """Log user activity with the new table structure"""
     try:
         from models.user import User  # Import here to avoid circular imports
-        connection = User.get_db_connection()
+        # connection = User.get_db_connection()
 
         with connection.cursor() as cursor:
             # Get user role if not provided

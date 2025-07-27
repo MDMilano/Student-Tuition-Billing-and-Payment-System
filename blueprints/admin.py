@@ -121,7 +121,6 @@ def dashboard():
             cursor.execute("""
                 SELECT 
                     c.name as course_name,
-                    c.code as course_code,
                     COUNT(s.id) as enrolled_count
                 FROM courses c
                 LEFT JOIN students s ON c.id = s.course_id AND s.is_active = TRUE
@@ -614,15 +613,14 @@ def generate_next_student_id():
 @login_required
 @admin_required
 def courses():
-#     connection = User.get_db_connection()
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            # Get courses
-            cursor.execute("SELECT * FROM courses WHERE is_active = TRUE ORDER BY name")
+            # Get all courses (both active and inactive)
+            cursor.execute("SELECT * FROM courses ORDER BY is_active DESC, name")
             courses = cursor.fetchall()
 
-            # Get statistics
+            # Get statistics (only active courses and students)
             # Total enrolled students
             cursor.execute("""
                 SELECT COUNT(*) as total_students 
@@ -642,7 +640,7 @@ def courses():
             """)
             total_revenue = cursor.fetchone()['total_revenue']
 
-            # Average students per course
+            # Average students per course (only active courses)
             cursor.execute("""
                 SELECT AVG(student_count) as avg_students 
                 FROM (
@@ -682,28 +680,28 @@ def courses():
 @admin_required
 def add_course():
     name = request.form.get('name')
-    code = request.form.get('code')
     price = request.form.get('price')
     description = request.form.get('description')
 
-    if not all([name, code, price]):
+    if not all([name, price]):
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('admin.courses'))
 
-#     connection = User.get_db_connection()
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
             cursor.execute('''
-                INSERT INTO courses (name, code, price, description)
-                VALUES (%s, %s, %s, %s)
-            ''', (name, code, price, description))
+                INSERT INTO courses (name, price, description)
+                VALUES (%s, %s, %s)
+            ''', (name, price, description))
             connection.commit()
 
             flash('Course added successfully.', 'success')
 
     except pymysql.IntegrityError:
-        flash('Course code already exists.', 'error')
+        flash('Course name already exists.', 'error')
+    except Exception as e:
+        flash('An error occurred while adding the course.', 'error')
     finally:
         connection.close()
 
@@ -715,11 +713,10 @@ def add_course():
 @admin_required
 def edit_course(course_id):
     name = request.form.get('name')
-    code = request.form.get('code')
     price = request.form.get('price')
     description = request.form.get('description')
 
-    if not all([name, code, price]):
+    if not all([name, price]):
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('admin.courses'))
 
@@ -737,17 +734,92 @@ def edit_course(course_id):
             # Update course
             cursor.execute('''
                 UPDATE courses 
-                SET name = %s, code = %s, price = %s, description = %s, updated_at = CURRENT_TIMESTAMP
+                SET name = %s, price = %s, description = %s, updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
-            ''', (name, code, price, description, course_id))
+            ''', (name, price, description, course_id))
             connection.commit()
 
             flash('Course updated successfully.', 'success')
 
     except pymysql.IntegrityError:
-        flash('Course code already exists.', 'error')
+        flash('Course name already exists.', 'error')
     except Exception as e:
         flash('An error occurred while updating the course.', 'error')
+    finally:
+        connection.close()
+
+    return redirect(url_for('admin.courses'))
+
+
+@admin_bp.route('/courses/activate/<int:course_id>', methods=['POST'])
+@login_required
+@admin_required
+def activate_course(course_id):
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Check if course exists
+            cursor.execute("SELECT * FROM courses WHERE id = %s", (course_id,))
+            course = cursor.fetchone()
+
+            if not course:
+                flash('Course not found.', 'error')
+                return redirect(url_for('admin.courses'))
+
+            # Activate the course
+            cursor.execute('''
+                UPDATE courses 
+                SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (course_id,))
+            connection.commit()
+
+            flash(f'Course "{course["name"]}" has been activated successfully.', 'success')
+
+    except Exception as e:
+        flash('An error occurred while activating the course.', 'error')
+    finally:
+        connection.close()
+
+    return redirect(url_for('admin.courses'))
+
+
+@admin_bp.route('/courses/deactivate/<int:course_id>', methods=['POST'])
+@login_required
+@admin_required
+def deactivate_course(course_id):
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Check if course exists
+            cursor.execute("SELECT * FROM courses WHERE id = %s", (course_id,))
+            course = cursor.fetchone()
+
+            if not course:
+                flash('Course not found.', 'error')
+                return redirect(url_for('admin.courses'))
+
+            # Check if course has active enrolled students
+            cursor.execute("SELECT COUNT(*) as student_count FROM students WHERE course_id = %s AND is_active = TRUE",
+                           (course_id,))
+            student_count = cursor.fetchone()['student_count']
+
+            if student_count > 0:
+                flash(f'Cannot deactivate course. It has {student_count} active enrolled student(s). Please handle these students first.', 'warning')
+                return redirect(url_for('admin.courses'))
+
+            # Deactivate the course
+            cursor.execute('''
+                UPDATE courses 
+                SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (course_id,))
+            connection.commit()
+
+            flash(f'Course "{course["name"]}" has been deactivated successfully.', 'success')
+
+    except Exception as e:
+        flash('An error occurred while deactivating the course.', 'error')
     finally:
         connection.close()
 
@@ -762,31 +834,40 @@ def delete_course(course_id):
     try:
         with connection.cursor() as cursor:
             # Check if course exists
-            cursor.execute("SELECT * FROM courses WHERE id = %s AND is_active = TRUE", (course_id,))
+            cursor.execute("SELECT * FROM courses WHERE id = %s", (course_id,))
             course = cursor.fetchone()
 
             if not course:
                 flash('Course not found.', 'error')
                 return redirect(url_for('admin.courses'))
 
-            # Check if course has enrolled students
-            cursor.execute("SELECT COUNT(*) as student_count FROM students WHERE course_id = %s AND is_active = TRUE",
+            # Check if course has any students (both active and inactive)
+            cursor.execute("SELECT COUNT(*) as student_count FROM students WHERE course_id = %s",
                            (course_id,))
             student_count = cursor.fetchone()['student_count']
 
             if student_count > 0:
-                flash(f'Cannot delete course. It has {student_count} enrolled student(s).', 'error')
+                flash(f'Cannot permanently delete course. It has {student_count} student record(s). Consider deactivating instead.', 'error')
                 return redirect(url_for('admin.courses'))
 
-            # Soft delete the course
-            cursor.execute('''
-                UPDATE courses 
-                SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            ''', (course_id,))
+            # Check if course has any payment records
+            cursor.execute("""
+                SELECT COUNT(*) as payment_count 
+                FROM payments p 
+                JOIN students s ON p.student_id = s.id 
+                WHERE s.course_id = %s
+            """, (course_id,))
+            payment_count = cursor.fetchone()['payment_count']
+
+            if payment_count > 0:
+                flash(f'Cannot permanently delete course. It has {payment_count} payment record(s). Consider deactivating instead.', 'error')
+                return redirect(url_for('admin.courses'))
+
+            # Permanently delete the course (only if no students or payments)
+            cursor.execute('DELETE FROM courses WHERE id = %s', (course_id,))
             connection.commit()
 
-            flash('Course deleted successfully.', 'success')
+            flash(f'Course "{course["name"]}" has been permanently deleted.', 'success')
 
     except Exception as e:
         flash('An error occurred while deleting the course.', 'error')
@@ -804,7 +885,7 @@ def get_course_details(course_id):
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM courses WHERE id = %s AND is_active = TRUE", (course_id,))
+            cursor.execute("SELECT * FROM courses WHERE id = %s", (course_id,))
             course = cursor.fetchone()
 
             if not course:
@@ -813,10 +894,12 @@ def get_course_details(course_id):
             return jsonify({
                 'id': course['id'],
                 'name': course['name'],
-                'code': course['code'],
                 'price': float(course['price']),
-                'description': course['description'] or ''
+                'description': course['description'] or '',
+                'is_active': course['is_active']
             })
+    except Exception as e:
+        return jsonify({'error': 'An error occurred while fetching course details'}), 500
     finally:
         connection.close()
 
@@ -854,6 +937,8 @@ def get_course_students(course_id):
                 'course_name': course['name'] if course else 'Unknown Course',
                 'students': students
             })
+    except Exception as e:
+        return jsonify({'error': 'An error occurred while fetching student data'}), 500
     finally:
         connection.close()
 

@@ -132,10 +132,10 @@
                 <tbody>
                     {% for student in students %}
                     <tr>
-                        <td><strong>{{ student.student_id }}</strong></td>
-                        <td>{{ student.first_name }} {{ student.last_name }}</td>
+                        <td><strong>{{ student.sid }}</strong></td>
+                        <td>{{ student.name}}</td>
                         <td>{{ student.course_name or "— —" }}</td>
-                        <td>₱{{ "{:,.2f}".format(student.total_due or 0) }}</td>
+                        <td>₱{{ "{:,.2f}".format(student.total_fee or 0) }}</td>
                         <td>₱{{ "{:,.2f}".format(student.total_paid or 0) }}</td>
                         <td>
                             {% if student.balance and student.balance > 0 %}
@@ -146,7 +146,7 @@
                         </td>
                         <td>
                             {% if student.latest_payment_date %}
-                                {{ student.latest_payment_date.strftime('%Y-%m-%d') }}
+                                {{ student.latest_payment_date.strftime('%Y-%m-%d %H:%M:%S') }}
                             {% else %}
                                 <span class="text-muted">No payment yet</span>
                             {% endif %}
