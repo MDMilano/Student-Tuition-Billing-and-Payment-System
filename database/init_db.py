@@ -109,7 +109,6 @@ def create_tables(port):
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (student_id) REFERENCES students(id),
-                    FOREIGN KEY (billing_id) REFERENCES student_balances(id) ON DELETE SET NULL,
                     FOREIGN KEY (collected_by) REFERENCES users(id)
                 )
             ''')

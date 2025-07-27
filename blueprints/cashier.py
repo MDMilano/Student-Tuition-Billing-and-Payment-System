@@ -114,9 +114,9 @@ def dashboard():
                 count = row['count']
                 total += count
 
-                if 'cash' in method:
+                if 'cash' == method:
                     data['cash'] += count
-                elif 'gcash' in method or 'maya' in method:
+                elif 'gcash' == method or 'maya' in method:
                     data['gcash'] += count
                 elif 'bank' in method:
                     data['bank'] += count
@@ -129,27 +129,34 @@ def dashboard():
             }
 
             # For recent payments
-            # For recent payments
             cursor.execute('''
+                WITH StudentPayments AS (
+                    SELECT 
+                        p.student_id,
+                        SUM(p.amount_paid) AS total_paid,
+                        MAX(p.created_at) AS last_payment_date
+                    FROM payments p
+                    GROUP BY p.student_id
+                )
                 SELECT 
                     p.created_at AS time,
                     CONCAT(s.first_name, ' ', s.last_name) AS student,
                     p.amount_paid AS amount,
                     p.payment_method AS method,
                     CASE 
-                        WHEN p.amount_paid >= c.price THEN 'paid'
-                        WHEN p.amount_paid > 0 THEN 'partial'
+                        WHEN p.created_at = sp.last_payment_date AND sp.total_paid >= c.price THEN 'paid'
+                        WHEN sp.total_paid > 0 THEN 'partial'
                         ELSE 'unpaid'
                     END AS status
                 FROM payments p
                 JOIN students s ON p.student_id = s.id
                 JOIN courses c ON s.course_id = c.id
+                JOIN StudentPayments sp ON p.student_id = sp.student_id
                 WHERE p.collected_by = %s
                 ORDER BY p.created_at DESC
                 LIMIT 5
             ''', (current_user.id,))
             recent_payments = cursor.fetchall()
-
 
     finally:
         connection.close()
@@ -171,7 +178,6 @@ def dashboard():
                            unpaid_count=unpaid_count,
                            recent_payments=recent_payments,
                            payment_data=percentages)
-
 
 
 @cashier_bp.route('/students')
@@ -413,7 +419,6 @@ def collect_payment(student_id):
             amount = request.form.get('amount')
             method = request.form.get('payment_method')
             notes = request.form.get('notes', '')
-            billing_id = request.form.get('billing_id')
 
             if not amount or not method:
                 flash('Please fill in all required fields.', 'error')
@@ -467,21 +472,13 @@ def collect_payment(student_id):
 
                 # Insert payment record only if all checks pass
                 cursor.execute('''
-                    INSERT INTO payments (student_id, billing_id, amount_paid, payment_method, payment_date, collected_by, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO payments (student_id,  amount_paid, payment_method, payment_date, collected_by, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                 ''', (
-                    student_id, billing_id if billing_id else None, amount, method, date.today(),
+                    student_id, amount, method, date.today(),
                     current_user.id, notes))
 
                 payment_id = cursor.lastrowid
-
-                # Update total_paid in student_balances if billing_id provided
-                if student_id:
-                    cursor.execute('''
-                        UPDATE student_balances 
-                        SET total_paid = total_paid + %s
-                        WHERE student_id = %s
-                    ''', (amount, student_id))
 
                 # Get student info for logging
                 # log_activity(current_user.id,
@@ -520,17 +517,6 @@ def collect_payment(student_id):
             total_paid = Decimal(student['total_paid'])  # Convert to Decimal
             balance = total_due - total_paid
             status = 'unpaid' if total_paid == 0 else 'paid' if total_paid >= total_due else 'partial'
-
-            # Add billing information to student data
-            student['billings'] = [{
-                'semester': '1st',  # You can set this based on your logic
-                'from_year': 2024,  # Replace with actual year logic
-                'to_year': 2025,  # Replace with actual year logic
-                'total_fee': total_due,
-                'total_paid': total_paid,
-                'balance': balance,
-                'status': status
-            }]
 
     except Exception as e:
         flash(f'An unexpected error occurred: {str(e)}', 'error')
@@ -676,6 +662,14 @@ def payment_history_all():
 
             # Get all payment history (regardless of student)
             cursor.execute('''
+                WITH StudentPayments AS (
+                    SELECT 
+                        p.student_id,
+                        SUM(p.amount_paid) AS total_paid,
+                        MAX(p.created_at) AS last_payment_date
+                    FROM payments p
+                    GROUP BY p.student_id
+                )
                 SELECT 
                     p.id,
                     p.created_at AS datetime,
@@ -685,8 +679,8 @@ def payment_history_all():
                     p.amount_paid AS amount,
                     p.payment_method AS method,
                     CASE 
-                        WHEN p.amount_paid >= c.price THEN 'paid'
-                        WHEN p.amount_paid > 0 THEN 'partial'
+                        WHEN p.created_at = sp.last_payment_date AND sp.total_paid >= c.price THEN 'paid'
+                        WHEN sp.total_paid > 0 THEN 'partial'
                         ELSE 'unpaid'
                     END AS status,
                     p.notes,
@@ -695,9 +689,10 @@ def payment_history_all():
                 JOIN students s ON p.student_id = s.id
                 LEFT JOIN courses c ON s.course_id = c.id
                 LEFT JOIN users u ON p.collected_by = u.id
+                JOIN StudentPayments sp ON p.student_id = sp.student_id
                 ORDER BY p.created_at DESC
                 LIMIT %s OFFSET %s
-            ''', (per_page, offset))
+                ''', (per_page, offset))
             payment_history = cursor.fetchall()
 
             # Get distinct active courses
