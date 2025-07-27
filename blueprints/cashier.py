@@ -463,7 +463,7 @@ def collect_payment(student_id):
 
                 # Check if the new total paid exceeds the total due
                 if new_total_paid > total_due:
-                    flash(f'The payment amount of ₱{amount:,.2f} exceeds the total due of ₱{total_due:,.2f}. Payment cannot be processed.', 'error')
+                    flash(f'The payment amount of ₱{amount:,.2f} exceeds the remaining balance of ₱{balance:,.2f}. Payment cannot be processed.', 'error')
                     return redirect(url_for('cashier.view_collect_payment'))
 
                 # Insert payment record only if all checks pass
@@ -485,9 +485,9 @@ def collect_payment(student_id):
                     ''', (amount, student_id))
 
                 # Get student info for logging
-                log_activity(current_user.id,
-                             f"Collected payment of ₱{amount:,.2f} from {student_data['name']} ({student_data['student_id']})",
-                             'payments', payment_id)
+                # log_activity(current_user.id,
+                #              f"Collected payment of ₱{amount:,.2f} from {student_data['name']} ({student_data['student_id']})",
+                #              'payments', payment_id)
 
                 flash(f'Payment of ₱{amount:,.2f} collected successfully.', 'success')
                 return redirect(url_for('cashier.students'))

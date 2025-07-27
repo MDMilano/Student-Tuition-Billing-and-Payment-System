@@ -63,7 +63,7 @@ class User(UserMixin):
 
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT * FROM users WHERE email = %s AND is_active = TRUE", (email,))
+                cursor.execute("SELECT * FROM users WHERE email = %s;", (email,))
                 user_data = cursor.fetchone()
                 if user_data:
                     return User(**user_data)
