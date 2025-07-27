@@ -217,50 +217,78 @@
 
         <!-- Pagination -->
         {% if pagination and pagination.pages > 1 %}
-        <nav aria-label="Students pagination">
+        <nav aria-label="Students pagination" class="mt-4">
             <ul class="pagination justify-content-center">
+                <!-- Previous Button -->
                 {% if pagination.has_prev %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num, **request.args) }}">
+                    <a class="page-link" href="{{ url_for('admin.students', page=pagination.prev_num,
+                        search=request.args.get('search', ''),
+                        student_status_filter=request.args.get('student_status_filter', 'active'),
+                        course_filter=request.args.get('course_filter', ''),
+                        payment_status_filter=request.args.get('payment_status_filter', '')) }}"
+                        aria-label="Previous">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                 </li>
                 {% else %}
                 <li class="page-item disabled">
-                    <a class="page-link"><i class="bi bi-chevron-left"></i></a>
+                    <span class="page-link"><i class="bi bi-chevron-left"></i></span>
                 </li>
                 {% endif %}
 
+                <!-- Page Numbers -->
                 {% for page_num in pagination.iter_pages() %}
                     {% if page_num %}
                         {% if page_num != pagination.page %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('admin.students', page=page_num, **request.args) }}">{{ page_num }}</a>
+                            <a class="page-link" href="{{ url_for('admin.students', page=page_num,
+                                search=request.args.get('search', ''),
+                                student_status_filter=request.args.get('student_status_filter', 'active'),
+                                course_filter=request.args.get('course_filter', ''),
+                                payment_status_filter=request.args.get('payment_status_filter', '')) }}">
+                                {{ page_num }}
+                            </a>
                         </li>
                         {% else %}
-                        <li class="page-item active">
-                            <a class="page-link" href="#">{{ page_num }}</a>
+                        <li class="page-item active" aria-current="page">
+                            <span class="page-link">{{ page_num }}</span>
                         </li>
                         {% endif %}
                     {% else %}
                     <li class="page-item disabled">
-                        <a class="page-link">…</a>
+                        <span class="page-link">…</span>
                     </li>
                     {% endif %}
                 {% endfor %}
 
+                <!-- Next Button -->
                 {% if pagination.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num, **request.args) }}">
+                    <a class="page-link" href="{{ url_for('admin.students', page=pagination.next_num,
+                        search=request.args.get('search', ''),
+                        student_status_filter=request.args.get('student_status_filter', 'active'),
+                        course_filter=request.args.get('course_filter', ''),
+                        payment_status_filter=request.args.get('payment_status_filter', '')) }}"
+                        aria-label="Next">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </li>
                 {% else %}
                 <li class="page-item disabled">
-                    <a class="page-link"><i class="bi bi-chevron-right"></i></a>
+                    <span class="page-link"><i class="bi bi-chevron-right"></i></span>
                 </li>
                 {% endif %}
             </ul>
+
+            <!-- Pagination Info -->
+            <div class="text-center mt-2">
+                <small class="text-muted">
+                    Showing {{ ((pagination.page - 1) * pagination.per_page + 1) if students else 0 }}
+                    to {{ pagination.page * pagination.per_page if pagination.page * pagination.per_page < pagination.total else pagination.total }}
+                    of {{ pagination.total }} students
+                </small>
+            </div>
         </nav>
         {% endif %}
         {% else %}

@@ -3,334 +3,141 @@
 {% block title %}Profile - Student Tuition System{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 mb-0">My Profile</h1>
-        <p class="text-muted">Manage your account information and preferences</p>
-    </div>
-    <div>
-        <button type="button" class="btn btn-outline-secondary" onclick="toggleEditMode()">
-            <i class="bi bi-pencil me-2"></i>Edit Profile
-        </button>
-    </div>
-</div>
-
-<div class="row">
-    <!-- Profile Information -->
-    <div class="col-lg-8 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-person me-2"></i>
-                    Personal Information
-                </h5>
-            </div>
-            <div class="card-body">
-                <form id="profileForm">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="firstName" class="form-label">First Name</label>
-                            <input type="text" class="form-control" id="firstName" 
-                                   value="{{ user.first_name or 'Maria' }}" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="lastName" class="form-label">Last Name</label>
-                            <input type="text" class="form-control" id="lastName" 
-                                   value="{{ user.last_name or 'Santos' }}" readonly>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="email" class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="email" 
-                                   value="{{ user.email or 'maria.santos@tuition.system' }}" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="phone" class="form-label">Phone Number</label>
-                            <input type="tel" class="form-control" id="phone" 
-                                   value="{{ user.phone or '+63 912 345 6789' }}" readonly>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="employeeId" class="form-label">Employee ID</label>
-                            <input type="text" class="form-control" id="employeeId" 
-                                   value="{{ user.employee_id or 'CSH-2024-001' }}" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="department" class="form-label">Department</label>
-                            <input type="text" class="form-control" id="department" 
-                                   value="{{ user.department or 'Finance - Cashier' }}" readonly>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="dateHired" class="form-label">Date Hired</label>
-                            <input type="date" class="form-control" id="dateHired" 
-                                   value="{{ user.date_hired or '2024-01-15' }}" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="status" class="form-label">Employment Status</label>
-                            <input type="text" class="form-control" id="status" 
-                                   value="{{ user.status or 'Active' }}" readonly>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="address" class="form-label">Address</label>
-                        <textarea class="form-control" id="address" rows="3" readonly>{{ user.address or '123 Main Street, Quezon City, Metro Manila, Philippines' }}</textarea>
-                    </div>
-
-                    <div class="d-none" id="editActions">
-                        <hr>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-primary" onclick="saveProfile()">
-                                <i class="bi bi-check me-2"></i>Save Changes
-                            </button>
-                            <button type="button" class="btn btn-secondary" onclick="cancelEdit()">
-                                <i class="bi bi-x me-2"></i>Cancel
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Profile Picture and Account Info -->
-    <div class="col-lg-4 mb-4">
-        <div class="card">
-            <div class="card-header text-center">
-                <h5 class="mb-0">Profile Picture</h5>
-            </div>
-            <div class="card-body text-center">
-                <div class="mb-3">
-                    <img src="https://via.placeholder.com/150x150/B2DFDB/37474F?text=MS" 
-                         alt="Profile Picture" class="rounded-circle mb-3" width="150" height="150" id="profileImage">
-                </div>
-                <div class="mb-3">
-                    <input type="file" class="form-control d-none" id="photoUpload" accept="image/*">
-                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('photoUpload').click()">
-                        <i class="bi bi-camera me-2"></i>Change Photo
-                    </button>
-                </div>
-                <hr>
-                <div class="text-start">
-                    <p class="mb-2"><strong>Role:</strong> Cashier</p>
-                    <p class="mb-2"><strong>Last Login:</strong><br>
-                        <small class="text-muted">{{ last_login or 'June 30, 2025 - 9:30 AM' }}</small>
-                    </p>
-                    <p class="mb-2"><strong>Account Created:</strong><br>
-                        <small class="text-muted">{{ account_created or 'January 15, 2024' }}</small>
-                    </p>
-                    <p class="mb-0"><strong>Total Logins:</strong> {{ total_logins or 284 }}</p>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0">My Profile</h1>
+                    <p class="text-muted">Manage your account information and preferences</p>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
-<!-- Change Password Section -->
-<div class="row">
-    <div class="col-lg-8 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-lock me-2"></i>
-                    Change Password
-                </h5>
-            </div>
-            <div class="card-body">
-                <form id="passwordForm">
-                    <div class="mb-3">
-                        <label for="currentPassword" class="form-label">Current Password</label>
-                        <div class="input-group">
-                            <input type="password" class="form-control" id="currentPassword" 
-                                   placeholder="Enter your current password">
-                            <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('currentPassword')">
-                                <i class="bi bi-eye" id="currentPasswordIcon"></i>
-                            </button>
+            <div class="row">
+                <!-- Profile Information -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-person me-2"></i>
+                                Personal Information
+                            </h5>
                         </div>
-                    </div>
+                        <div class="card-body">
+                            <form id="profileForm" method="POST" action="{{ url_for('cashier.update_profile') }}">
+                                <div class="mb-3">
+                                    <label for="fullName" class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="fullName" name="full_name"
+                                           value="{{ current_user.name or '' }}" readonly required>
+                                </div>
 
-                    <div class="mb-3">
-                        <label for="newPassword" class="form-label">New Password</label>
-                        <div class="input-group">
-                            <input type="password" class="form-control" id="newPassword" 
-                                   placeholder="Enter new password">
-                            <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('newPassword')">
-                                <i class="bi bi-eye" id="newPasswordIcon"></i>
-                            </button>
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email Address</label>
+                                    <input type="email" class="form-control" id="email" name="email"
+                                           value="{{ current_user.email or '' }}" readonly required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="role" class="form-label">Role</label>
+                                    <input type="text" class="form-control" id="role"
+                                           value="{{ current_user.role.title() if current_user.role else 'Cashier' }}" readonly>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-primary" onclick="toggleEditMode()">
+                                        <i class="bi bi-pencil me-2"></i>Edit Profile
+                                    </button>
+                                </div>
+
+                                <div class="d-none" id="editActions">
+                                    <hr>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary" id="saveProfileBtn">
+                                            <i class="bi bi-check me-2"></i>
+                                            <span>Save Changes</span>
+                                            <span class="spinner-border spinner-border-sm ms-2 d-none" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </span>
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="cancelEdit()">
+                                            <i class="bi bi-x me-2"></i>Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
                         </div>
-                        <div class="form-text">
-                            Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                        <div class="input-group">
-                            <input type="password" class="form-control" id="confirmPassword" 
-                                   placeholder="Confirm new password">
-                            <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('confirmPassword')">
-                                <i class="bi bi-eye" id="confirmPasswordIcon"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <div class="progress" style="height: 5px;">
-                            <div class="progress-bar" id="passwordStrength" style="width: 0%"></div>
-                        </div>
-                        <small class="form-text" id="passwordStrengthText">Password strength: Weak</small>
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-primary" onclick="changePassword()">
-                            <i class="bi bi-key me-2"></i>Change Password
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="clearPasswordForm()">
-                            <i class="bi bi-arrow-clockwise me-2"></i>Reset Form
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Account Settings -->
-    <div class="col-lg-4 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-gear me-2"></i>
-                    Account Settings
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Email Notifications</label>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="emailPayments" checked>
-                        <label class="form-check-label" for="emailPayments">
-                            Payment notifications
-                        </label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="emailReports" checked>
-                        <label class="form-check-label" for="emailReports">
-                            Daily reports
-                        </label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="emailAlerts">
-                        <label class="form-check-label" for="emailAlerts">
-                            System alerts
-                        </label>
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label for="timezone" class="form-label">Timezone</label>
-                    <select class="form-select" id="timezone">
-                        <option value="Asia/Manila" selected>Asia/Manila (GMT+8)</option>
-                        <option value="UTC">UTC (GMT+0)</option>
-                        <option value="America/New_York">America/New_York (GMT-5)</option>
-                    </select>
-                </div>
+                <!-- Change Password Section -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-lock me-2"></i>
+                                Change Password
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="passwordForm" method="POST" action="{{ url_for('cashier.change_password') }}">
+                                <div class="mb-3">
+                                    <label for="currentPassword" class="form-label">Current Password</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="currentPassword" name="current_password"
+                                               placeholder="Enter your current password" required>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('currentPassword')">
+                                            <i class="bi bi-eye" id="currentPasswordIcon"></i>
+                                        </button>
+                                    </div>
+                                </div>
 
-                <div class="mb-3">
-                    <label for="language" class="form-label">Language</label>
-                    <select class="form-select" id="language">
-                        <option value="en" selected>English</option>
-                        <option value="fil">Filipino</option>
-                    </select>
-                </div>
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label">New Password</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="newPassword" name="new_password"
+                                               placeholder="Enter new password" required>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('newPassword')">
+                                            <i class="bi bi-eye" id="newPasswordIcon"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">
+                                        Password must be at least 8 characters long and contain uppercase, lowercase, and number.
+                                    </div>
+                                </div>
 
-                <hr>
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="confirmPassword" name="confirm_password"
+                                               placeholder="Confirm new password" required>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('confirmPassword')">
+                                            <i class="bi bi-eye" id="confirmPasswordIcon"></i>
+                                        </button>
+                                    </div>
+                                </div>
 
-                <div class="d-grid">
-                    <button type="button" class="btn btn-success mb-2" onclick="saveSettings()">
-                        <i class="bi bi-check-circle me-2"></i>Save Settings
-                    </button>
-                    <button type="button" class="btn btn-outline-danger" onclick="deactivateAccount()">
-                        <i class="bi bi-exclamation-triangle me-2"></i>Deactivate Account
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+                                <div class="mb-3">
+                                    <div class="progress" style="height: 5px;">
+                                        <div class="progress-bar" id="passwordStrength" style="width: 0%"></div>
+                                    </div>
+                                    <small class="form-text" id="passwordStrengthText">Password strength: Weak</small>
+                                </div>
 
-<!-- Activity Log -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="bi bi-activity me-2"></i>
-                        Recent Activity
-                    </h5>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="exportActivityLog()">
-                        <i class="bi bi-download me-1"></i>Export Log
-                    </button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Date & Time</th>
-                                <th>Activity</th>
-                                <th>Details</th>
-                                <th>IP Address</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for activity in recent_activities or [
-                                {'datetime': 'June 30, 2025 - 9:30 AM', 'activity': 'Login', 'details': 'Successful login', 'ip': '192.168.1.105'},
-                                {'datetime': 'June 29, 2025 - 4:45 PM', 'activity': 'Payment Collection', 'details': 'Collected ₱15,000 from STU-2024-008', 'ip': '192.168.1.105'},
-                                {'datetime': 'June 29, 2025 - 4:30 PM', 'activity': 'Profile Update', 'details': 'Updated phone number', 'ip': '192.168.1.105'},
-                                {'datetime': 'June 29, 2025 - 2:15 PM', 'activity': 'Payment Collection', 'details': 'Collected ₱8,500 from STU-2024-015', 'ip': '192.168.1.105'},
-                                {'datetime': 'June 29, 2025 - 8:30 AM', 'activity': 'Login', 'details': 'Successful login', 'ip': '192.168.1.105'}
-                            ] %}
-                            <tr>
-                                <td>
-                                    <small class="text-muted">{{ activity.datetime }}</small>
-                                </td>
-                                <td>
-                                    {% if activity.activity == 'Login' %}
-                                        <span class="badge bg-success">
-                                            <i class="bi bi-box-arrow-in-right me-1"></i>{{ activity.activity }}
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary" id="changePasswordBtn">
+                                        <i class="bi bi-key me-2"></i>
+                                        <span>Change Password</span>
+                                        <span class="spinner-border spinner-border-sm ms-2 d-none" role="status">
+                                            <span class="visually-hidden">Loading...</span>
                                         </span>
-                                    {% elif activity.activity == 'Payment Collection' %}
-                                        <span class="badge bg-primary">
-                                            <i class="bi bi-cash me-1"></i>{{ activity.activity }}
-                                        </span>
-                                    {% else %}
-                                        <span class="badge bg-info">
-                                            <i class="bi bi-pencil me-1"></i>{{ activity.activity }}
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ activity.details }}</td>
-                                <td><small class="text-muted">{{ activity.ip }}</small></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <small class="text-muted">Showing recent 5 activities</small>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadMoreActivity()">
-                        <i class="bi bi-arrow-down me-1"></i>Load More
-                    </button>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="clearPasswordForm()">
+                                        <i class="bi bi-arrow-clockwise me-2"></i>Reset Form
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -339,24 +146,153 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+/* Alert auto-dismiss animation - Removed since handled by base.html */
+
+/* Full screen layout adjustments */
+.container-fluid {
+    padding: 0 15px;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Password strength colors */
+.bg-very-weak { background-color: #dc3545 !important; }
+.bg-weak { background-color: #fd7e14 !important; }
+.bg-medium { background-color: #ffc107 !important; }
+.bg-strong { background-color: #20c997 !important; }
+.bg-very-strong { background-color: #198754 !important; }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize password strength checker
-    document.getElementById('newPassword').addEventListener('input', checkPasswordStrength);
-    
-    // Initialize photo upload
-    document.getElementById('photoUpload').addEventListener('change', handlePhotoUpload);
+    const newPasswordField = document.getElementById('newPassword');
+    if (newPasswordField) {
+        newPasswordField.addEventListener('input', checkPasswordStrength);
+    }
+
+    // Handle form submissions
+    setupFormHandlers();
 });
 
+// Flash messages are handled by base.html template
+
+// Setup form submission handlers
+function setupFormHandlers() {
+    // Profile form handler
+    const profileForm = document.getElementById('profileForm');
+    if (profileForm) {
+        profileForm.addEventListener('submit', function(e) {
+            const saveBtn = document.getElementById('saveProfileBtn');
+            const btnText = saveBtn.querySelector('span:first-of-type');
+            const spinner = saveBtn.querySelector('.spinner-border');
+
+            // Show loading state
+            saveBtn.disabled = true;
+            btnText.textContent = 'Saving...';
+            spinner.classList.remove('d-none');
+        });
+    }
+
+    // Password form handler with enhanced client-side validation
+    const passwordForm = document.getElementById('passwordForm');
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', function(e) {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Client-side validation with scroll to top for errors
+            if (!currentPassword.trim()) {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            if (!newPassword.trim()) {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                e.preventDefault();
+                document.getElementById('confirmPassword').focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                e.preventDefault();
+                document.getElementById('newPassword').focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            // Password strength validation
+            const hasUpper = /[A-Z]/.test(newPassword);
+            const hasLower = /[a-z]/.test(newPassword);
+            const hasNumber = /\d/.test(newPassword);
+
+            if (!hasUpper) {
+                e.preventDefault();
+                document.getElementById('newPassword').focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            if (!hasLower) {
+                e.preventDefault();
+                document.getElementById('newPassword').focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            if (!hasNumber) {
+                e.preventDefault();
+                document.getElementById('newPassword').focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            if (currentPassword === newPassword) {
+                e.preventDefault();
+                document.getElementById('newPassword').focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            const changeBtn = document.getElementById('changePasswordBtn');
+            const btnText = changeBtn.querySelector('span:first-of-type');
+            const spinner = changeBtn.querySelector('.spinner-border');
+
+            // Show loading state
+            changeBtn.disabled = true;
+            btnText.textContent = 'Changing...';
+            spinner.classList.remove('d-none');
+        });
+    }
+}
+
 function toggleEditMode() {
-    const inputs = document.querySelectorAll('#profileForm input, #profileForm textarea');
+    const inputs = document.querySelectorAll('#profileForm input[type="text"], #profileForm input[type="email"]');
     const editActions = document.getElementById('editActions');
     const editButton = document.querySelector('button[onclick="toggleEditMode()"]');
-    
+    const roleField = document.getElementById('role');
+
     const isReadonly = inputs[0].hasAttribute('readonly');
-    
+
     inputs.forEach(input => {
-        if (input.id !== 'employeeId' && input.id !== 'status') { // Keep some fields readonly
+        if (input !== roleField) { // Keep role field readonly
             if (isReadonly) {
                 input.removeAttribute('readonly');
                 input.classList.add('border-primary');
@@ -366,42 +302,51 @@ function toggleEditMode() {
             }
         }
     });
-    
+
     if (isReadonly) {
         editActions.classList.remove('d-none');
         editButton.innerHTML = '<i class="bi bi-x me-2"></i>Cancel Edit';
         editButton.setAttribute('onclick', 'cancelEdit()');
+        editButton.classList.remove('btn-outline-primary');
+        editButton.classList.add('btn-outline-secondary');
     } else {
         editActions.classList.add('d-none');
         editButton.innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Profile';
         editButton.setAttribute('onclick', 'toggleEditMode()');
+        editButton.classList.remove('btn-outline-secondary');
+        editButton.classList.add('btn-outline-primary');
     }
 }
 
 function cancelEdit() {
-    location.reload(); // Simple way to reset form
-}
+    // Reset form to original values
+    document.getElementById('fullName').value = "{{ current_user.name or '' }}";
+    document.getElementById('email').value = "{{ current_user.email or '' }}";
 
-function saveProfile() {
-    // Show loading state
-    const saveBtn = document.querySelector('button[onclick="saveProfile()"]');
-    const originalText = saveBtn.innerHTML;
-    saveBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving...';
-    saveBtn.disabled = true;
+    // Reset edit mode
+    const inputs = document.querySelectorAll('#profileForm input[type="text"], #profileForm input[type="email"]');
+    const editActions = document.getElementById('editActions');
+    const editButton = document.querySelector('button[onclick="cancelEdit()"]');
+    const roleField = document.getElementById('role');
 
-    // Simulate save
-    setTimeout(() => {
-        alert('Profile updated successfully!');
-        toggleEditMode();
-        saveBtn.innerHTML = originalText;
-        saveBtn.disabled = false;
-    }, 1500);
+    inputs.forEach(input => {
+        if (input !== roleField) {
+            input.setAttribute('readonly', true);
+            input.classList.remove('border-primary');
+        }
+    });
+
+    editActions.classList.add('d-none');
+    editButton.innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Profile';
+    editButton.setAttribute('onclick', 'toggleEditMode()');
+    editButton.classList.remove('btn-outline-secondary');
+    editButton.classList.add('btn-outline-primary');
 }
 
 function togglePassword(fieldId) {
     const field = document.getElementById(fieldId);
     const icon = document.getElementById(fieldId + 'Icon');
-    
+
     if (field.type === 'password') {
         field.type = 'text';
         icon.className = 'bi bi-eye-slash';
@@ -415,118 +360,64 @@ function checkPasswordStrength() {
     const password = document.getElementById('newPassword').value;
     const strengthBar = document.getElementById('passwordStrength');
     const strengthText = document.getElementById('passwordStrengthText');
-    
+
     let strength = 0;
     let label = 'Very Weak';
-    let color = 'bg-danger';
-    
+    let colorClass = 'bg-very-weak';
+
+    // Length check
     if (password.length >= 8) strength += 20;
+    if (password.length >= 12) strength += 5;
+
+    // Character type checks
     if (/[a-z]/.test(password)) strength += 20;
     if (/[A-Z]/.test(password)) strength += 20;
     if (/[0-9]/.test(password)) strength += 20;
-    if (/[^A-Za-z0-9]/.test(password)) strength += 20;
-    
-    if (strength >= 80) {
+    if (/[^A-Za-z0-9]/.test(password)) strength += 15; // Special chars give bonus but not required
+
+    // Complexity bonus
+    const uniqueChars = new Set(password).size;
+    if (uniqueChars >= 6) strength += 15;
+
+    // Determine strength label and color
+    if (strength >= 85) {
         label = 'Very Strong';
-        color = 'bg-success';
-    } else if (strength >= 60) {
+        colorClass = 'bg-very-strong';
+    } else if (strength >= 70) {
         label = 'Strong';
-        color = 'bg-success';
-    } else if (strength >= 40) {
+        colorClass = 'bg-strong';
+    } else if (strength >= 50) {
         label = 'Medium';
-        color = 'bg-warning';
-    } else if (strength >= 20) {
+        colorClass = 'bg-medium';
+    } else if (strength >= 25) {
         label = 'Weak';
-        color = 'bg-warning';
+        colorClass = 'bg-weak';
     }
-    
+
+    // Cap at 100%
+    strength = Math.min(strength, 100);
+
     strengthBar.style.width = strength + '%';
-    strengthBar.className = 'progress-bar ' + color;
+    strengthBar.className = 'progress-bar ' + colorClass;
     strengthText.textContent = 'Password strength: ' + label;
-}
-
-function changePassword() {
-    const currentPassword = document.getElementById('currentPassword').value;
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    
-    if (!currentPassword || !newPassword || !confirmPassword) {
-        alert('Please fill in all password fields.');
-        return;
-    }
-    
-    if (newPassword !== confirmPassword) {
-        alert('New passwords do not match.');
-        return;
-    }
-    
-    if (newPassword.length < 8) {
-        alert('Password must be at least 8 characters long.');
-        return;
-    }
-    
-    // Show loading state
-    const changeBtn = document.querySelector('button[onclick="changePassword()"]');
-    const originalText = changeBtn.innerHTML;
-    changeBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Changing...';
-    changeBtn.disabled = true;
-
-    // Simulate password change
-    setTimeout(() => {
-        alert('Password changed successfully!');
-        clearPasswordForm();
-        changeBtn.innerHTML = originalText;
-        changeBtn.disabled = false;
-    }, 2000);
 }
 
 function clearPasswordForm() {
     document.getElementById('passwordForm').reset();
     document.getElementById('passwordStrength').style.width = '0%';
-    document.getElementById('passwordStrengthText').textContent = 'Password strength: Weak';
-}
+    document.getElementById('passwordStrength').className = 'progress-bar bg-very-weak';
+    document.getElementById('passwordStrengthText').textContent = 'Password strength: Very Weak';
 
-function handlePhotoUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('profileImage').src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-        
-        // Simulate upload
-        setTimeout(() => {
-            alert('Profile picture updated successfully!');
-        }, 1000);
-    }
-}
-
-function saveSettings() {
-    const saveBtn = document.querySelector('button[onclick="saveSettings()"]');
-    const originalText = saveBtn.innerHTML;
-    saveBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving...';
-    saveBtn.disabled = true;
-
-    setTimeout(() => {
-        alert('Settings saved successfully!');
-        saveBtn.innerHTML = originalText;
-        saveBtn.disabled = false;
-    }, 1500);
-}
-
-function deactivateAccount() {
-    if (confirm('Are you sure you want to deactivate your account? This action cannot be undone.')) {
-        alert('Account deactivation request submitted. Please contact your administrator.');
-    }
-}
-
-function exportActivityLog() {
-    alert('Activity log exported successfully!');
-}
-
-function loadMoreActivity() {
-    alert('Loading more activities...');
+    // Reset all password field types to password
+    const passwordFields = ['currentPassword', 'newPassword', 'confirmPassword'];
+    passwordFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        const icon = document.getElementById(fieldId + 'Icon');
+        if (field && icon) {
+            field.type = 'password';
+            icon.className = 'bi bi-eye';
+        }
+    });
 }
 </script>
 {% endblock %}

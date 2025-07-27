@@ -10,6 +10,8 @@ from flask import send_file
 import io
 import pandas as pd
 from flask import jsonify, request
+import re
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 cashier_bp = Blueprint('cashier', __name__)
@@ -715,3 +717,181 @@ def payment_history_all():
 @cashier_required
 def profile():
     return render_template('cashier/profile.html')
+
+
+@cashier_bp.route('/update-profile', methods=['POST'])
+@login_required
+@cashier_required
+def update_profile():
+    full_name = request.form.get('full_name', '').strip()
+    email = request.form.get('email', '').strip()
+
+    # Validation
+    if not full_name:
+        flash('Full name is required.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    if not email:
+        flash('Email is required.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    # Email format validation
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, email):
+        flash('Please enter a valid email address.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Check if email already exists for another user
+            cursor.execute('''
+                SELECT id FROM users 
+                WHERE email = %s AND id != %s
+            ''', (email, current_user.id))
+
+            if cursor.fetchone():
+                flash('Email address is already in use by another account.', 'error')
+                return redirect(url_for('cashier.profile'))
+
+            # Update user profile
+            cursor.execute('''
+                UPDATE users 
+                SET name = %s, email = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (full_name, email, current_user.id))
+
+            connection.commit()
+
+            # Update current_user object with new data
+            current_user.name = full_name
+            current_user.email = email
+
+            flash('Profile updated successfully!', 'success')
+
+    except Exception as e:
+        connection.rollback()
+        flash('An error occurred while updating your profile. Please try again.', 'error')
+        print(f"Profile update error: {e}")  # For debugging
+
+    finally:
+        connection.close()
+
+    return redirect(url_for('cashier.profile'))
+
+
+@cashier_bp.route('/change-password', methods=['POST'])
+@login_required
+@cashier_required
+def change_password():
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+
+    # Validation
+    if not current_password or not new_password or not confirm_password:
+        flash('Please fill in all password fields.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    if new_password != confirm_password:
+        flash('New passwords do not match.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    # Password strength validation
+    if len(new_password) < 8:
+        flash('Password must be at least 8 characters long.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    if not re.search(r'[A-Z]', new_password):
+        flash('Password must contain at least one uppercase letter.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    if not re.search(r'[a-z]', new_password):
+        flash('Password must contain at least one lowercase letter.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    if not re.search(r'\d', new_password):
+        flash('Password must contain at least one number.', 'error')
+        return redirect(url_for('cashier.profile'))
+
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Get current user's password hash
+            cursor.execute('''
+                SELECT password_hash FROM users WHERE id = %s
+            ''', (current_user.id,))
+
+            result = cursor.fetchone()
+            if not result:
+                flash('User not found.', 'error')
+                return redirect(url_for('cashier.profile'))
+
+            # Verify current password
+            if not check_password_hash(result['password_hash'], current_password):
+                flash('Current password is incorrect.', 'error')
+                return redirect(url_for('cashier.profile'))
+
+            # Check if new password is different from current
+            if check_password_hash(result['password_hash'], new_password):
+                flash('New password must be different from your current password.', 'error')
+                return redirect(url_for('cashier.profile'))
+
+            # Update password
+            new_password_hash = generate_password_hash(new_password)
+            cursor.execute('''
+                UPDATE users 
+                SET password_hash = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (new_password_hash, current_user.id))
+
+            connection.commit()
+
+            flash('Password changed successfully!', 'success')
+
+    except Exception as e:
+        connection.rollback()
+        flash('An error occurred while changing your password. Please try again.', 'error')
+        print(f"Password change error: {e}")  # For debugging
+
+    finally:
+        connection.close()
+
+    return redirect(url_for('cashier.profile'))
+
+
+@cashier_bp.route('/get-profile-data', methods=['GET'])
+@login_required
+@cashier_required
+def get_profile_data():
+    """Get fresh profile data for the user"""
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT name, email, role, created_at, updated_at
+                FROM users WHERE id = %s
+            ''', (current_user.id,))
+
+            user_data = cursor.fetchone()
+
+            if user_data:
+                return {
+                    'success': True,
+                    'data': {
+                        'name': user_data['name'],
+                        'email': user_data['email'],
+                        'role': user_data['role'].title(),
+                        'created_at': user_data['created_at'].strftime('%B %d, %Y'),
+                        'updated_at': user_data['updated_at'].strftime('%B %d, %Y - %I:%M %p')
+                    }
+                }
+            else:
+                return {'success': False, 'message': 'User not found'}
+
+    except Exception as e:
+        print(f"Get profile data error: {e}")
+        return {'success': False, 'message': 'An error occurred'}
+
+    finally:
+        connection.close()

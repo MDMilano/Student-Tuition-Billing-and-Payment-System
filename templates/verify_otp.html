@@ -15,6 +15,7 @@
                     <p class="text-muted mt-2">Enter the 6-digit code sent to your email</p>
                 </div>
                 <div class="card-body p-4">
+
                     <div class="alert alert-success">
                         <i class="bi bi-envelope-check me-2"></i>
                         We've sent a verification code to <strong>{{ session.reset_email or 'your email' }}</strong>
@@ -92,6 +93,34 @@
     background-color: var(--primary-color);
     color: var(--text-dark);
 }
+
+/* Alert auto-dismiss animation */
+.auto-dismiss {
+    position: relative;
+    overflow: hidden;
+}
+
+.auto-dismiss::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+        rgba(255,255,255,0.8) 0%,
+        rgba(255,255,255,0.5) 50%,
+        rgba(255,255,255,0.8) 100%);
+    animation: countdown-bar 3s linear forwards;
+}
+
+@keyframes countdown-bar {
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
+}
 </style>
 
 <script>
@@ -103,6 +132,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let countdown = 60;
     let countdownInterval;
+
+    // Auto-dismiss alerts after 3 seconds
+    function autoDismissAlerts() {
+        const alerts = document.querySelectorAll('.alert.auto-dismiss');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                if (alert && alert.parentNode) {
+                    // Use Bootstrap's alert close method if available
+                    const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                    bsAlert.close();
+                }
+            }, 3000);
+        });
+    }
+
+    // Create and show dynamic alert with auto-dismiss
+    function showAlert(message, type = 'success') {
+        // Remove any existing dynamic alerts
+        const existingAlerts = document.querySelectorAll('.dynamic-alert');
+        existingAlerts.forEach(alert => alert.remove());
+
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show auto-dismiss dynamic-alert`;
+        alert.innerHTML = `
+            <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        // Insert after the existing success alert
+        const existingSuccessAlert = document.querySelector('.alert-success');
+        if (existingSuccessAlert) {
+            existingSuccessAlert.insertAdjacentElement('afterend', alert);
+        } else {
+            document.querySelector('.card-body').insertBefore(alert, document.querySelector('form'));
+        }
+
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => {
+            if (alert && alert.parentNode) {
+                const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                bsAlert.close();
+            }
+        }, 3000);
+    }
 
     // OTP Input Logic
     otpInputs.forEach((input, index) => {
@@ -197,24 +271,20 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             }
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Show success message
-                const alert = document.createElement('div');
-                alert.className = 'alert alert-success alert-dismissible fade show';
-                alert.innerHTML = `
-                    <i class="bi bi-check-circle me-2"></i>
-                    New OTP sent successfully!
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                document.querySelector('.card-body').insertBefore(alert, document.querySelector('form'));
+                showAlert('New OTP sent successfully!', 'success');
+            } else {
+                showAlert(data.message || 'Failed to send OTP. Please try again.', 'danger');
             }
         })
         .catch(error => {
             console.error('Error:', error);
+            showAlert('Network error. Please try again.', 'danger');
         });
     });
 
@@ -223,6 +293,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Start initial countdown
     startCountdown();
+
+    // Auto-dismiss existing Flask flash messages
+    autoDismissAlerts();
 });
 </script>
 {% endblock %}

@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from functools import wraps
 from models.user import User
 from models.log import Log
-from utils.helpers import log_activity, admin_required
+from utils.helpers import admin_required
 import pymysql
 from config import Config
 from database.init_db import get_db_connection
@@ -156,17 +156,15 @@ def dashboard():
 @login_required
 @admin_required
 def students():
-#     connection = User.get_db_connection()
     connection = get_db_connection()
     """Main students management page with search, filter, and pagination"""
     try:
-        # connection = User.get_db_connection()
         with connection.cursor() as cursor:
             # Get all active courses for filter dropdown
             cursor.execute("SELECT id, name, price FROM courses WHERE is_active = TRUE ORDER BY name")
             courses = cursor.fetchall()
 
-            # Build query with filters - Remove the is_active filter to show all students
+            # Build query with filters
             where_conditions = []
             params = []
 
@@ -200,7 +198,9 @@ def students():
 
             # Base query with JOINs
             where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
-            base_query = f"""
+
+            # Create the main query
+            main_query = f"""
                 SELECT 
                     s.id,
                     s.student_id,
@@ -224,38 +224,35 @@ def students():
                          c.name, c.price
             """
 
-            # Add payment status filter after getting the data
+            # Add payment status filter using HAVING clause
+            having_clause = ""
             if payment_status_filter:
                 if payment_status_filter == 'paid':
-                    base_query += " HAVING (c.price - COALESCE(SUM(p.amount_paid), 0)) = 0 AND c.price > 0"
+                    having_clause = " HAVING (c.price - COALESCE(SUM(p.amount_paid), 0)) = 0 AND c.price > 0"
                 elif payment_status_filter == 'partial':
-                    base_query += " HAVING COALESCE(SUM(p.amount_paid), 0) > 0 AND (c.price - COALESCE(SUM(p.amount_paid), 0)) > 0"
+                    having_clause = " HAVING COALESCE(SUM(p.amount_paid), 0) > 0 AND (c.price - COALESCE(SUM(p.amount_paid), 0)) > 0"
                 elif payment_status_filter == 'unpaid':
-                    base_query += " HAVING COALESCE(SUM(p.amount_paid), 0) = 0"
+                    having_clause = " HAVING COALESCE(SUM(p.amount_paid), 0) = 0"
 
-            # Add ordering
-            base_query += " ORDER BY s.created_at DESC"
+            # Complete query with having clause
+            complete_query = main_query + having_clause
 
-            # Pagination
+            # Get total count for pagination (wrap the complete query in a subquery)
+            count_query = f"SELECT COUNT(*) as total FROM ({complete_query}) as filtered_students"
+            cursor.execute(count_query, params)
+            total_students = cursor.fetchone()['total']
+
+            # Pagination setup
             page = request.args.get('page', 1, type=int)
             per_page = 10
             offset = (page - 1) * per_page
 
-            # Get total count for pagination
-            count_query = f"""
-                SELECT COUNT(*) as total FROM (
-                    {base_query}
-                ) as subquery
-            """
-            cursor.execute(count_query, params)
-            total_students = cursor.fetchone()['total']
-
             # Get paginated results
-            paginated_query = f"{base_query} LIMIT %s OFFSET %s"
+            paginated_query = f"{complete_query} ORDER BY s.created_at DESC LIMIT %s OFFSET %s"
             cursor.execute(paginated_query, params + [per_page, offset])
             students = cursor.fetchall()
 
-            # Get statistics
+            # Get statistics for all students (not filtered)
             stats_query = """
                 SELECT 
                     COUNT(CASE WHEN s.is_active = TRUE THEN 1 END) as active_students,
@@ -276,35 +273,37 @@ def students():
 
             # Calculate additional stats
             outstanding_balance = statistics['total_fees'] - statistics['total_collected']
-            collection_rate = (statistics['total_collected'] / statistics['total_fees'] * 100) if statistics['total_fees'] > 0 else 0
-
-            # Calculate pagination info
-            total_pages = (total_students + per_page - 1) // per_page
-            has_prev = page > 1
-            has_next = page < total_pages
+            collection_rate = (statistics['total_collected'] / statistics['total_fees'] * 100) if statistics[
+                                                                                                      'total_fees'] > 0 else 0
 
             # Create pagination object
             class Pagination:
-                def __init__(self, page, per_page, total, items):
+                def __init__(self, page, per_page, total):
                     self.page = page
                     self.per_page = per_page
                     self.total = total
-                    self.items = items
-                    self.pages = total_pages
-                    self.has_prev = has_prev
-                    self.has_next = has_next
-                    self.prev_num = page - 1 if has_prev else None
-                    self.next_num = page + 1 if has_next else None
+                    self.pages = max(1, (total + per_page - 1) // per_page)  # Ensure at least 1 page
+                    self.has_prev = page > 1 and total > 0
+                    self.has_next = page < self.pages and total > 0
+                    self.prev_num = page - 1 if self.has_prev else None
+                    self.next_num = page + 1 if self.has_next else None
 
                 def iter_pages(self, left_edge=2, left_current=2, right_current=3, right_edge=2):
+                    """Generate page numbers for pagination display"""
+                    if self.pages <= 1:
+                        return
+
                     last = self.pages
                     for num in range(1, last + 1):
                         if num <= left_edge or \
                                 (self.page - left_current - 1 < num < self.page + right_current) or \
                                 num > last - right_edge:
                             yield num
+                        elif num == left_edge + 1 or num == last - right_edge:
+                            yield None  # This creates the "..." gaps
 
-            pagination = Pagination(page, per_page, total_students, students)
+            # Create pagination instance
+            pagination = Pagination(page, per_page, total_students) if total_students > 0 else None
 
             return render_template('admin/manage_students.html',
                                    students=students,
@@ -322,7 +321,19 @@ def students():
 
     except Exception as e:
         flash(f'Error loading students: {str(e)}', 'error')
-        return render_template('admin/manage_students.html', students=[], courses=[], statistics={})
+        return render_template('admin/manage_students.html',
+                               students=[],
+                               courses=[],
+                               pagination=None,
+                               statistics={
+                                   'active_students': 0,
+                                   'inactive_students': 0,
+                                   'total_students': 0,
+                                   'total_fees': 0,
+                                   'total_collected': 0,
+                                   'outstanding_balance': 0,
+                                   'collection_rate': 0
+                               })
     finally:
         connection.close()
 
@@ -560,7 +571,7 @@ def activate_student(student_id):
 
 # Helper function to generate next student ID
 def generate_student_id():
-    """Generate next student ID in format STU-YYYY-###"""
+    """Generate next student ID in format STU-YYYY-#####"""
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
@@ -582,11 +593,11 @@ def generate_student_id():
             else:
                 next_number = 1
 
-            return f'STU-{current_year}-{next_number:03d}'
+            return f'STU-{current_year}-{next_number:05d}'
 
     except Exception:
         # Fallback to basic format
-        return f'STU-{datetime.now().year}-001'
+        return f'STU-{datetime.now().year}-00001'
     finally:
         connection.close()
 
@@ -689,7 +700,6 @@ def add_course():
             ''', (name, code, price, description))
             connection.commit()
 
-            log_activity(current_user.id, f"Added course: {name} ({code})", 'courses', cursor.lastrowid)
             flash('Course added successfully.', 'success')
 
     except pymysql.IntegrityError:
@@ -732,7 +742,6 @@ def edit_course(course_id):
             ''', (name, code, price, description, course_id))
             connection.commit()
 
-            log_activity(current_user.id, f"Updated course: {name} ({code})", 'courses', course_id)
             flash('Course updated successfully.', 'success')
 
     except pymysql.IntegrityError:
@@ -777,7 +786,6 @@ def delete_course(course_id):
             ''', (course_id,))
             connection.commit()
 
-            log_activity(current_user.id, f"Deleted course: {course['name']} ({course['code']})", 'courses', course_id)
             flash('Course deleted successfully.', 'success')
 
     except Exception as e:
@@ -886,7 +894,6 @@ def add_cashier():
 
     try:
         user_id = User.create(name, email, password, 'cashier')
-        log_activity(current_user.id, f"Added cashier: {name} ({email})", 'users', user_id)
         flash('Cashier added successfully.', 'success')
     except Exception as e:
         if 'Duplicate entry' in str(e) or 'email already exists' in str(e).lower():
@@ -919,7 +926,6 @@ def edit_cashier(cashier_id):
 
     try:
         if User.update_cashier(cashier_id, name, email):
-            log_activity(current_user.id, f"Updated cashier: {name} ({email})", 'users', cashier_id)
             flash('Cashier updated successfully.', 'success')
         else:
             flash('Error updating cashier.', 'error')
@@ -941,7 +947,6 @@ def toggle_cashier(cashier_id):
         if User.toggle_active(cashier_id):
             cashier = User.get_by_id(cashier_id)
             status = "activated" if cashier.is_active else "deactivated"
-            log_activity(current_user.id, f"Cashier {status}: {cashier.name}", 'users', cashier_id)
             flash(f'Cashier {status} successfully.', 'success')
         else:
             flash('Error updating cashier status.', 'error')
@@ -954,12 +959,6 @@ def toggle_cashier(cashier_id):
 @admin_bp.route('/cashiers/delete/<int:cashier_id>')
 @login_required
 @admin_required
-# def logs():
-#     page = request.args.get('page', 1, type=int)
-#     per_page = Config.LOGS_PER_PAGE
-#
-# #     connection = User.get_db_connection()
-#     connection = get_db_connection()
 def delete_cashier(cashier_id):
     """Delete cashier (optional route if you want delete functionality)"""
     try:
@@ -974,7 +973,6 @@ def delete_cashier(cashier_id):
             return redirect(url_for('admin.cashiers'))
 
         if User.delete(cashier_id):
-            log_activity(current_user.id, f"Deleted cashier: {cashier.name}", 'users', cashier_id)
             flash('Cashier deleted successfully.', 'success')
         else:
             flash('Error deleting cashier.', 'error')
@@ -984,51 +982,160 @@ def delete_cashier(cashier_id):
     return redirect(url_for('admin.cashiers'))
 
 
-from datetime import datetime, timedelta
-from flask import request, jsonify
-
-
 @admin_bp.route('/logs')
-@admin_bp.route('/logs/<int:page>')
 @login_required
 @admin_required
-def logs(page=1):
+def logs():
     """Display system logs with pagination"""
-    per_page = 20
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            # Build query with filters
+            where_conditions = []
+            params = []
 
-    # Get logs with pagination
-    logs_data = Log.get_paginated_logs(page, per_page)
-    logs = logs_data['logs']
-    pagination = logs_data['pagination']
+            # Search functionality
+            search = request.args.get('search', '').strip()
+            if search:
+                where_conditions.append("""
+                    (u.name LIKE %s OR 
+                     l.action LIKE %s OR 
+                     l.role LIKE %s)
+                """)
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param, search_param])
 
-    # Get statistics
-    stats = Log.get_log_statistics()
+            # Role filter
+            role_filter = request.args.get('role_filter', '').strip()
+            if role_filter:
+                where_conditions.append("l.role = %s")
+                params.append(role_filter)
 
-    return render_template('admin/logs.html',
-                           logs=logs,
-                           pagination=pagination,
-                           today_count=stats['today_count'],
-                           unique_users=stats['unique_users'],
-                           recent_count=stats['recent_count'],
-                           now=datetime.now())
+            # Action filter
+            action_filter = request.args.get('action_filter', '').strip()
+            if action_filter:
+                if action_filter == 'login':
+                    where_conditions.append("l.action LIKE %s")
+                    params.append("%login%")
+                elif action_filter == 'logout':
+                    where_conditions.append("l.action LIKE %s")
+                    params.append("%logout%")
+                else:
+                    where_conditions.append("l.action = %s")
+                    params.append(action_filter)
 
+            # Date filter
+            date_filter = request.args.get('date_filter', '').strip()
+            if date_filter:
+                if date_filter == 'today':
+                    where_conditions.append("DATE(l.created_at) = CURDATE()")
+                elif date_filter == 'yesterday':
+                    where_conditions.append("DATE(l.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)")
+                elif date_filter == 'week':
+                    where_conditions.append("l.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")
+                elif date_filter == 'month':
+                    where_conditions.append("l.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")
 
-@admin_bp.route('/logs/<int:log_id>/details')
-@login_required
-@admin_required
-def log_details(log_id):
-    """Get detailed information for a specific log"""
-    log = Log.get_by_id(log_id)
-    if not log:
-        return jsonify({'error': 'Log not found'}), 404
+            # Build WHERE clause
+            where_clause = ""
+            if where_conditions:
+                where_clause = "WHERE " + " AND ".join(where_conditions)
 
-    return jsonify({
-        'id': log.id,
-        'created_at': log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else None,
-        'user_name': log.user_name or 'System',
-        'action': log.action,
-        'role': log.role or 'Unknown'
-    })
+            # Pagination setup
+            page = request.args.get('page', 1, type=int)
+            per_page = 10
+            offset = (page - 1) * per_page
+
+            # Get total count for pagination
+            count_query = f"SELECT COUNT(*) as total FROM logs l LEFT JOIN users u ON l.user_id = u.id {where_clause}"
+            cursor.execute(count_query, params)
+            total_logs = cursor.fetchone()['total']
+
+            # Get paginated logs
+            logs_query = f"""
+                SELECT 
+                    l.id,
+                    l.user_id,
+                    l.action,
+                    l.role,
+                    l.created_at,
+                    u.name as user_name
+                FROM logs l
+                LEFT JOIN users u ON l.user_id = u.id
+                {where_clause}
+                ORDER BY l.created_at DESC
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(logs_query, params + [per_page, offset])
+            logs = cursor.fetchall()
+
+            # Get available roles for filter dropdown
+            roles_query = "SELECT DISTINCT role FROM logs WHERE role IS NOT NULL AND role != '' ORDER BY role"
+            cursor.execute(roles_query)
+            available_roles = [row['role'] for row in cursor.fetchall()]
+
+            # Get statistics (for all logs, not filtered)
+            stats_query = """
+                SELECT 
+                    COUNT(*) as total_logs,
+                    COUNT(CASE WHEN DATE(l.created_at) = CURDATE() THEN 1 END) as today_count,
+                    COUNT(CASE WHEN l.created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR) THEN 1 END) as recent_count,
+                    COUNT(DISTINCT l.user_id) as unique_users
+                FROM logs l
+            """
+            cursor.execute(stats_query)
+            stats = cursor.fetchone()
+
+            # Create pagination object (same as manage students)
+            class Pagination:
+                def __init__(self, page, per_page, total):
+                    self.page = page
+                    self.per_page = per_page
+                    self.total = total
+                    self.pages = max(1, (total + per_page - 1) // per_page)
+                    self.has_prev = page > 1 and total > 0
+                    self.has_next = page < self.pages and total > 0
+                    self.prev_num = page - 1 if self.has_prev else None
+                    self.next_num = page + 1 if self.has_next else None
+
+                def iter_pages(self, left_edge=2, left_current=2, right_current=3, right_edge=2):
+                    """Generate page numbers for pagination display"""
+                    if self.pages <= 1:
+                        return
+
+                    last = self.pages
+                    for num in range(1, last + 1):
+                        if num <= left_edge or \
+                                (self.page - left_current - 1 < num < self.page + right_current) or \
+                                num > last - right_edge:
+                            yield num
+                        elif num == left_edge + 1 or num == last - right_edge:
+                            yield None  # This creates the "..." gaps
+
+            # Create pagination instance
+            pagination = Pagination(page, per_page, total_logs) if total_logs > 0 else None
+
+            return render_template('admin/logs.html',
+                                   logs=logs,
+                                   pagination=pagination,
+                                   available_roles=available_roles,
+                                   today_count=stats['today_count'],
+                                   unique_users=stats['unique_users'],
+                                   recent_count=stats['recent_count'],
+                                   now=datetime.now())
+
+    except Exception as e:
+        flash(f'Error loading logs: {str(e)}', 'error')
+        return render_template('admin/logs.html',
+                               logs=[],
+                               pagination=None,
+                               available_roles=[],
+                               today_count=0,
+                               unique_users=0,
+                               recent_count=0,
+                               now=datetime.now())
+    finally:
+        connection.close()
 
 
 @admin_bp.route('/logs/clear', methods=['POST'])
@@ -1036,20 +1143,27 @@ def log_details(log_id):
 @admin_required
 def clear_old_logs():
     """Clear logs older than 90 days"""
+    connection = get_db_connection()
     try:
-        deleted_count = Log.clear_old_logs(days=90)
-        return jsonify({
-            'success': True,
-            'message': f'Successfully cleared {deleted_count} old log entries'
-        })
+        with connection.cursor() as cursor:
+            delete_query = "DELETE FROM logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)"
+            cursor.execute(delete_query)
+            deleted_count = cursor.rowcount
+            connection.commit()
+
+            return jsonify({
+                'success': True,
+                'message': f'Successfully cleared {deleted_count} old log entries'
+            })
     except Exception as e:
+        connection.rollback()
         return jsonify({
             'success': False,
             'message': 'Error clearing old logs'
         }), 500
+    finally:
+        connection.close()
 
-
-# Replace the profile-related code at the bottom of your admin_bp with this:
 
 @admin_bp.route('/profile')
 @login_required
@@ -1145,9 +1259,6 @@ def update_profile():
 
                 connection.commit()
 
-                # Log the action
-                log_activity(current_user.id, f'Updated profile information', 'users', current_user.id)
-
                 flash('Profile updated successfully!', 'success')
 
         finally:
@@ -1208,9 +1319,6 @@ def change_password():
                 """, (new_password_hash, current_user.id))
 
                 connection.commit()
-
-                # Log the action
-                log_activity(current_user.id, 'Changed password', 'users', current_user.id)
 
                 flash('Password changed successfully!', 'success')
 

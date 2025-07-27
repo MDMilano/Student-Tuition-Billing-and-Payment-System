@@ -25,15 +25,15 @@ class User(UserMixin):
         return check_password_hash(self.password_hash, password)
 
     '''commented to use the automatic connecting to database with different ports.'''
-    # @staticmethod
-    # def get_db_connection():
-    #     return pymysql.connect(
-    #         host=Config.MYSQL_HOST,
-    #         user=Config.MYSQL_USER,
-    #         password=Config.MYSQL_PASSWORD,
-    #         database=Config.MYSQL_DB,
-    #         cursorclass=pymysql.cursors.DictCursor
-    #     )
+    @staticmethod
+    def get_db_connection():
+        return pymysql.connect(
+            host=Config.MYSQL_HOST,
+            user=Config.MYSQL_USER,
+            password=Config.MYSQL_PASSWORD,
+            database=Config.MYSQL_DB,
+            cursorclass=pymysql.cursors.DictCursor
+        )
 
     @staticmethod
     def get_by_id(user_id):
@@ -98,15 +98,15 @@ class User(UserMixin):
 
     @staticmethod
     def update_password(email, new_password):
-#         connection = User.get_db_connection()
-#for the automated connetion:
+        #connection = User.get_db_connection()
+        #for the automated connetion:
         connection = get_db_connection()
 
         try:
             with connection.cursor() as cursor:
                 password_hash = generate_password_hash(new_password)
                 cursor.execute('''
-                    UPDATE users SET password_hash = %s, updated_at = CURRENT_TIMESTAMP
+                    UPDATE users SET password_hash = %s
                     WHERE email = %s
                 ''', (password_hash, email))
                 connection.commit()

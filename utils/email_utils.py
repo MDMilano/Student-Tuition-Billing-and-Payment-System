@@ -43,7 +43,7 @@ def send_otp_email(email, otp):
 
                     <p style="font-size: 12px; color: #666; text-align: center;">
                         This is an automated email. Please do not reply to this message.<br>
-                        © 2024 Student Billing System
+                        © 2025 Student Billing System
                     </p>
                 </div>
             </div>

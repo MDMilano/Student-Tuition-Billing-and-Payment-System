@@ -13,7 +13,7 @@ def generate_otp():
     return ''.join(random.choices(string.digits, k=6))
 
 
-def log_activity(user_id, action, role=None, table_name=None, record_id=None, ip_address=None, user_agent=None):
+def log_activity(user_id, action, role=None):
     # connection = pymysql.connect(
     #     host=Config.MYSQL_HOST,
     #     user=Config.MYSQL_USER,
